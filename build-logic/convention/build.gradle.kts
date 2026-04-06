@@ -2,7 +2,7 @@ plugins {
   `kotlin-dsl`
 }
 
-group = "com.skydoves.chatgpt.buildlogic"
+group = "com.aiope2.buildlogic"
 
 java {
   sourceCompatibility = JavaVersion.VERSION_17
@@ -19,31 +19,31 @@ dependencies {
 gradlePlugin {
   plugins {
     register("androidApplicationCompose") {
-      id = "skydoves.android.application.compose"
+      id = "aiope2.android.application.compose"
       implementationClass = "AndroidApplicationComposeConventionPlugin"
     }
     register("androidApplication") {
-      id = "skydoves.android.application"
+      id = "aiope2.android.application"
       implementationClass = "AndroidApplicationConventionPlugin"
     }
     register("androidLibraryCompose") {
-      id = "skydoves.android.library.compose"
+      id = "aiope2.android.library.compose"
       implementationClass = "AndroidLibraryComposeConventionPlugin"
     }
     register("androidLibrary") {
-      id = "skydoves.android.library"
+      id = "aiope2.android.library"
       implementationClass = "AndroidLibraryConventionPlugin"
     }
     register("androidFeature") {
-      id = "skydoves.android.feature"
+      id = "aiope2.android.feature"
       implementationClass = "AndroidFeatureConventionPlugin"
     }
     register("androidHilt") {
-      id = "skydoves.android.hilt"
+      id = "aiope2.android.hilt"
       implementationClass = "AndroidHiltConventionPlugin"
     }
     register("spotless") {
-      id = "skydoves.spotless"
+      id = "aiope2.spotless"
       implementationClass = "SpotlessConventionPlugin"
     }
   }

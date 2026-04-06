@@ -1,11 +1,9 @@
-@file:Suppress("UnstableApiUsage")
 pluginManagement {
   includeBuild("build-logic")
   repositories {
     gradlePluginPortal()
     google()
     mavenCentral()
-    maven(url = "https://oss.sonatype.org/content/repositories/snapshots/")
   }
 }
 dependencyResolutionManagement {
@@ -13,10 +11,10 @@ dependencyResolutionManagement {
   repositories {
     google()
     mavenCentral()
-    maven(url = "https://oss.sonatype.org/content/repositories/snapshots/")
+    maven(url = "https://jitpack.io")
   }
 }
-rootProject.name = "chatgpt-android"
+rootProject.name = "aiope2"
 include(":app")
 include(":core-model")
 include(":core-network")
@@ -25,5 +23,3 @@ include(":core-data")
 include(":core-designsystem")
 include(":core-navigation")
 include(":feature-chat")
-include(":feature-login")
-include(":benchmark")

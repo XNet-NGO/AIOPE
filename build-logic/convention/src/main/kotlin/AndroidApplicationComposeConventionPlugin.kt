@@ -1,5 +1,5 @@
 import com.android.build.gradle.internal.dsl.BaseAppModuleExtension
-import com.skydoves.chatgpt.configureAndroidCompose
+import com.aiope2.configureAndroidCompose
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.kotlin.dsl.getByType

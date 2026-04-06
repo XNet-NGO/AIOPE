@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 plugins {
-  id("skydoves.android.library")
-  id("skydoves.android.library.compose")
-  id("skydoves.android.hilt")
-  id("skydoves.spotless")
+  id("aiope2.android.library")
+  id("aiope2.android.library.compose")
+  id("aiope2.android.hilt")
+  id("aiope2.spotless")
 }
 
 android {
-  namespace = "com.skydoves.chatgpt.core.navigation"
+  namespace = "com.aiope2.core.navigation"
 }
 
 dependencies {

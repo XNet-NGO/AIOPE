@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 plugins {
-  id("skydoves.android.library")
-  id("skydoves.android.hilt")
-  id("skydoves.spotless")
+  id("aiope2.android.library")
+  id("aiope2.android.hilt")
+  id("aiope2.spotless")
 }
 
 android {
-  namespace = "com.skydoves.chatgpt.core.preferences"
+  namespace = "com.aiope2.core.preferences"
 }
 
 dependencies {

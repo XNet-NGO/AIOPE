@@ -57,6 +57,7 @@ class ChatViewModel @Inject constructor(
   fun getModelList(): List<ModelDef> {
     val p = providerStore.getActive()
     return providerStore.getModelCache(p.builtinId)
+      ?: providerStore.getModelCacheStale(p.builtinId)
       ?: ProviderTemplates.byId[p.builtinId]?.defaultModels
       ?: emptyList()
   }

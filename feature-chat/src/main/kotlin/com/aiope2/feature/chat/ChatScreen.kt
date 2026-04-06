@@ -206,7 +206,7 @@ private fun ChatInput(onSend: (String) -> Unit, isStreaming: Boolean) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ModelPickerSheet(viewModel: ChatViewModel, onDismiss: () -> Unit) {
-  val models = remember { viewModel.getModelList() }
+  val models = viewModel.getModelList()
   val active = viewModel.providerStore.getActive()
   ModalBottomSheet(onDismissRequest = onDismiss) {
     Text(active.label, style = MaterialTheme.typography.labelMedium,

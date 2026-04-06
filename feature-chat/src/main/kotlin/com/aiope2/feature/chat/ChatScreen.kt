@@ -38,8 +38,10 @@ fun ChatScreen(viewModel: ChatViewModel = hiltViewModel(), onOpenSettings: () ->
         messages = messages, isStreaming = isStreaming, terminalVisible = terminalVisible,
         imeVisible = imeVisible, modelLabel = viewModel.modelLabel,
         onSend = viewModel::send, onToggleTerminal = viewModel::toggleTerminal,
-        onOpenSettings = onOpenSettings, onModelPicker = { showModelPicker = true },
-        onChats = { showConversations = true }, onNewChat = { viewModel.newConversation() },
+        onOpenSettings = onOpenSettings,
+        onGetModels = { viewModel.getModelList() }, onGetActiveModelId = { viewModel.providerStore.getActive().selectedModelId },
+        onSwitchModel = { viewModel.switchModel(it) },
+        onChats = { showConversations = true },
         modifier = Modifier.weight(1f)
       )
       if (terminalVisible) {
@@ -52,8 +54,10 @@ fun ChatScreen(viewModel: ChatViewModel = hiltViewModel(), onOpenSettings: () ->
         messages = messages, isStreaming = isStreaming, terminalVisible = terminalVisible,
         imeVisible = imeVisible, modelLabel = viewModel.modelLabel,
         onSend = viewModel::send, onToggleTerminal = viewModel::toggleTerminal,
-        onOpenSettings = onOpenSettings, onModelPicker = { showModelPicker = true },
-        onChats = { showConversations = true }, onNewChat = { viewModel.newConversation() },
+        onOpenSettings = onOpenSettings,
+        onGetModels = { viewModel.getModelList() }, onGetActiveModelId = { viewModel.providerStore.getActive().selectedModelId },
+        onSwitchModel = { viewModel.switchModel(it) },
+        onChats = { showConversations = true },
         modifier = Modifier.weight(1f)
       )
       if (terminalVisible) {
@@ -62,7 +66,6 @@ fun ChatScreen(viewModel: ChatViewModel = hiltViewModel(), onOpenSettings: () ->
     }
   }
 
-  if (showModelPicker) ModelPickerSheet(viewModel, onDismiss = { showModelPicker = false })
   if (showConversations) ConversationSheet(viewModel, onDismiss = { showConversations = false })
 }
 
@@ -74,10 +77,13 @@ private fun ChatContent(
   messages: List<ChatMessage>, isStreaming: Boolean, terminalVisible: Boolean,
   imeVisible: Boolean, modelLabel: String,
   onSend: (String) -> Unit, onToggleTerminal: () -> Unit,
-  onOpenSettings: () -> Unit, onModelPicker: () -> Unit,
-  onChats: () -> Unit, onNewChat: () -> Unit,
+  onOpenSettings: () -> Unit,
+  onGetModels: () -> List<com.aiope2.core.network.ModelDef>, onGetActiveModelId: () -> String,
+  onSwitchModel: (String) -> Unit,
+  onChats: () -> Unit,
   modifier: Modifier = Modifier
 ) {
+  var showModelPicker by remember { mutableStateOf(false) }
   Column(modifier) {
     // ── Toolbar ──
     Box(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp)) {
@@ -86,10 +92,29 @@ private fun ChatContent(
         contentPadding = PaddingValues(horizontal = 8.dp)) {
         Text("Chats", fontSize = 12.sp)
       }
-      // Center: Model
-      TextButton(onClick = onModelPicker, modifier = Modifier.align(Alignment.Center),
-        contentPadding = PaddingValues(horizontal = 8.dp)) {
-        Text(modelLabel, fontSize = 12.sp, maxLines = 1)
+      // Center: Model dropdown spinner
+      Box(modifier = Modifier.align(Alignment.Center)) {
+        TextButton(onClick = { showModelPicker = !showModelPicker },
+          contentPadding = PaddingValues(horizontal = 8.dp)) {
+          Text(modelLabel, fontSize = 12.sp, maxLines = 1)
+          Icon(Icons.Default.ArrowDropDown, null, modifier = Modifier.size(16.dp))
+        }
+        DropdownMenu(expanded = showModelPicker, onDismissRequest = { showModelPicker = false }) {
+          val models = onGetModels()
+          val activeModelId = onGetActiveModelId()
+          models.forEach { m ->
+            val selected = m.id == activeModelId
+            DropdownMenuItem(
+              text = { Text("${if (selected) "● " else ""}${m.displayName}",
+                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                fontSize = 13.sp) },
+              onClick = { onSwitchModel(m.id); showModelPicker = false }
+            )
+          }
+          if (models.isEmpty()) {
+            DropdownMenuItem(text = { Text("No models — fetch in Settings", fontSize = 12.sp) }, onClick = {})
+          }
+        }
       }
       // Right: Terminal + Settings
       Row(modifier = Modifier.align(Alignment.CenterEnd)) {
@@ -202,32 +227,6 @@ private fun ChatInput(onSend: (String) -> Unit, isStreaming: Boolean) {
 }
 
 // ── Model picker bottom sheet ──
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ModelPickerSheet(viewModel: ChatViewModel, onDismiss: () -> Unit) {
-  val models = viewModel.getModelList()
-  val active = viewModel.providerStore.getActive()
-  ModalBottomSheet(onDismissRequest = onDismiss) {
-    Text("${active.label} · ${models.size} models", style = MaterialTheme.typography.labelMedium,
-      color = MaterialTheme.colorScheme.onSurfaceVariant,
-      modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
-    LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f, fill = false)) {
-      items(models, key = { it.id }) { m ->
-        val selected = m.id == active.selectedModelId
-        ListItem(
-          headlineContent = { Text("${if (selected) "● " else "  "}${m.displayName}",
-            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface) },
-          supportingContent = if (m.contextWindow > 0) {{ Text("${m.contextWindow/1000}k${if (m.supportsTools) " 🔧" else ""}${if (m.supportsVision) " 👁" else ""}",
-            style = MaterialTheme.typography.bodySmall) }} else null,
-          modifier = Modifier.clickable { viewModel.switchModel(m.id); onDismiss() }
-        )
-      }
-    }
-    if (models.isEmpty()) Text("No models. Fetch in Settings.", Modifier.padding(16.dp))
-    Spacer(Modifier.height(32.dp))
-  }
-}
 
 // ── Conversation list bottom sheet ──
 

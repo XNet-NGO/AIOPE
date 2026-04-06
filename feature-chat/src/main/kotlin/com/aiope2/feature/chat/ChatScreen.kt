@@ -89,7 +89,8 @@ private fun ChatContent(
       }
       TextButton(onClick = onModelPicker, modifier = Modifier.weight(1f),
         contentPadding = PaddingValues(horizontal = 8.dp)) {
-        Text(modelLabel, fontSize = 12.sp, maxLines = 1)
+        Text(modelLabel, fontSize = 12.sp, maxLines = 1,
+          modifier = Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
       }
       IconButton(onClick = onNewChat, modifier = Modifier.size(36.dp)) {
         Icon(Icons.Default.Add, "New Chat", modifier = Modifier.size(18.dp))
@@ -126,14 +127,14 @@ private fun EmptyState(onSend: (String) -> Unit, modifier: Modifier = Modifier) 
     "Explain this error", "Write a Python script to...",
     "List files in /sdcard", "What's my Android version?"
   )
-  Column(modifier.padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally,
+  Column(modifier.fillMaxSize().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally,
     verticalArrangement = Arrangement.Center) {
     Text("AIOPE", fontSize = 24.sp, color = MaterialTheme.colorScheme.primary)
     Text("What can I help you with?", fontSize = 14.sp,
       color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
     Spacer(Modifier.height(16.dp))
     suggestions.forEach { s ->
-      TextButton(onClick = { onSend(s) }) {
+      TextButton(onClick = { onSend(s) }, modifier = Modifier.fillMaxWidth()) {
         Text(s, fontSize = 13.sp, color = MaterialTheme.colorScheme.tertiary)
       }
     }

@@ -247,7 +247,7 @@ private fun ProfileEditor(profile: ProviderProfile, store: ProviderStore,
 
       // ── Context ──
       Section("Context")
-      StepSlider("History Messages", p.maxContextMessages, HISTORY_STEPS) { p = p.copy(maxContextMessages = if (it == 0) null else it) }
+      HistorySlider("History Messages", p.maxContextMessages) { p = p.copy(maxContextMessages = if (it == 0) null else it) }
       Spacer(Modifier.height(8.dp))
       OutlinedTextField(value = p.systemPromptOverride ?: "", onValueChange = { p = p.copy(systemPromptOverride = it.ifBlank { null }) },
         label = { Text("System Prompt") }, modifier = Modifier.fillMaxWidth(), minLines = 3, maxLines = 6)
@@ -299,12 +299,25 @@ private fun ProfileEditor(profile: ProviderProfile, store: ProviderStore,
   Slider(value = v.toFloat(), onValueChange = { onChange(it.toInt()) }, valueRange = 0f..200f, steps = 199)
 }
 
+@Composable private fun HistorySlider(label: String, value: Int?, onChange: (Int) -> Unit) {
+  // 0 = unlimited (last position)
+  val idx = if (value == null || value == 0) HISTORY_STEPS.size - 1
+            else HISTORY_STEPS.indexOfFirst { it >= value }.takeIf { it >= 0 } ?: (HISTORY_STEPS.size - 1)
+  val sv = HISTORY_STEPS[idx]
+  val display = if (sv == 0) "∞" else sv.toString()
+  Text("$label: $display", style = MaterialTheme.typography.bodySmall)
+  Slider(value = idx.toFloat(), onValueChange = { onChange(HISTORY_STEPS[it.toInt().coerceIn(0, HISTORY_STEPS.size - 1)]) },
+    valueRange = 0f..(HISTORY_STEPS.size - 1).toFloat())
+}
+
 @Composable private fun StepSlider(label: String, value: Int?, steps: List<Int>, onChange: (Int) -> Unit) {
-  val idx = value?.let { v -> steps.indexOfFirst { it >= v }.takeIf { it >= 0 } } ?: (steps.size - 1)
-  val display = steps[idx].let { if (it == 0) "∞" else if (it >= 1000) "${it / 1000}K" else it.toString() }
+  val idx = if (value == null || value == 0) 0
+            else steps.indexOfFirst { it >= value }.takeIf { it >= 0 } ?: (steps.size - 1)
+  val sv = steps[idx]
+  val display = if (sv == 0) "off" else if (sv >= 1000) "${sv / 1000}K" else sv.toString()
   Text("$label: $display", style = MaterialTheme.typography.bodySmall)
   Slider(value = idx.toFloat(), onValueChange = { onChange(steps[it.toInt().coerceIn(0, steps.size - 1)]) },
-    valueRange = 0f..(steps.size - 1).toFloat(), steps = steps.size - 2)
+    valueRange = 0f..(steps.size - 1).toFloat())
 }
 
 private suspend fun fetchModels(baseUrl: String, apiKey: String): List<ModelDef> = withContext(Dispatchers.IO) {

@@ -2,6 +2,7 @@ package com.aiope2.feature.chat
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -22,12 +23,14 @@ fun MessageBubble(message: ChatMessage) {
       color = bgColor,
       modifier = Modifier.widthIn(max = 300.dp)
     ) {
-      Text(
-        text = message.content,
-        color = textColor,
-        modifier = Modifier.padding(12.dp),
-        style = MaterialTheme.typography.bodyMedium
-      )
+      SelectionContainer {
+        Text(
+          text = message.content,
+          color = textColor,
+          modifier = Modifier.padding(12.dp),
+          style = MaterialTheme.typography.bodyMedium
+        )
+      }
     }
   }
 }

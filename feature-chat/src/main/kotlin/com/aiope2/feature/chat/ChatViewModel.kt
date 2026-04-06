@@ -46,7 +46,15 @@ class ChatViewModel @Inject constructor(
   )
   private val executor = SingleLLMPromptExecutor(client)
   private val tools = AiopeTools(application)
-  private val model = LLModel(LLMProvider.OpenAI, "openai-fast")
+  private val model = LLModel(
+    LLMProvider.OpenAI, "openai-fast",
+    listOf(
+      ai.koog.prompt.llm.LLMCapability.Completion,
+      ai.koog.prompt.llm.LLMCapability.Tools,
+      ai.koog.prompt.llm.LLMCapability.Temperature,
+      ai.koog.prompt.llm.LLMCapability.OpenAIEndpoint.Completions,
+    )
+  )
 
   private val systemPrompt = """You are AIOPE, an AI coding assistant running on an Android device.
 You have tools: run_sh (execute shell commands), read_file, write_file, list_directory.

@@ -61,6 +61,7 @@ data class ProviderProfile(
   val label: String = "",
   val apiKey: String = "",
   val apiBase: String = "",
+  val endpointOverride: String = "",
   val selectedModelId: String = "",
   val isActive: Boolean = false,
   // Ability overrides (null = auto-detect)
@@ -89,7 +90,8 @@ data class ProviderProfile(
 
   fun toJson() = JSONObject().apply {
     put("id", id); put("builtinId", builtinId); put("label", label)
-    put("apiKey", apiKey); put("apiBase", apiBase); put("selectedModelId", selectedModelId)
+    put("apiKey", apiKey); put("apiBase", apiBase); put("endpointOverride", endpointOverride)
+    put("selectedModelId", selectedModelId)
     put("isActive", isActive)
     toolsOverride?.let { put("toolsOverride", it) }
     visionOverride?.let { put("visionOverride", it) }
@@ -119,7 +121,8 @@ data class ProviderProfile(
       return ProviderProfile(
         id = j.optString("id"), builtinId = j.optString("builtinId", "custom"),
         label = j.optString("label"), apiKey = j.optString("apiKey"),
-        apiBase = j.optString("apiBase"), selectedModelId = j.optString("selectedModelId"),
+        apiBase = j.optString("apiBase"), endpointOverride = j.optString("endpointOverride"),
+        selectedModelId = j.optString("selectedModelId"),
         isActive = j.optBoolean("isActive"),
         toolsOverride = if (j.has("toolsOverride")) j.optBoolean("toolsOverride") else null,
         visionOverride = if (j.has("visionOverride")) j.optBoolean("visionOverride") else null,

@@ -126,6 +126,7 @@ private fun ProfileEditor(profile: ProviderProfile, store: ProviderStore,
       // ── Connection ──
       Section("Connection")
       Field("Base URL", p.apiBase, builtin?.apiBase ?: "https://api.example.com/v1") { p = p.copy(apiBase = it) }
+      Field("Endpoint Override", p.endpointOverride, "e.g. chat/completions") { p = p.copy(endpointOverride = it) }
       if (builtin?.requiresApiKey != false)
         Field("API Key", p.apiKey, builtin?.apiKeyHint ?: "API key") { p = p.copy(apiKey = it) }
 
@@ -277,14 +278,28 @@ private fun ProfileEditor(profile: ProviderProfile, store: ProviderStore,
 
 private suspend fun fetchModels(baseUrl: String, apiKey: String): List<ModelDef> = withContext(Dispatchers.IO) {
   try {
-    val url = "${baseUrl.trimEnd('/')}/models"
+    // Normalize: ensure we hit the /models endpoint correctly
+    var base = baseUrl.trimEnd('/')
+    // For URLs ending in /v1, /models is at /v1/models
+    // For URLs ending in /openai, /models is at /openai/models
+    // For bare URLs, try /v1/models
+    val url = when {
+      base.endsWith("/v1") || base.endsWith("/openai") -> "$base/models"
+      else -> "$base/v1/models"
+    }
     val conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
     if (apiKey.isNotBlank()) conn.setRequestProperty("Authorization", "Bearer $apiKey")
-    conn.connectTimeout = 10_000; conn.readTimeout = 10_000
+    conn.connectTimeout = 15_000; conn.readTimeout = 15_000
     val body = conn.inputStream.bufferedReader().readText()
-    val data = org.json.JSONObject(body).optJSONArray("data") ?: return@withContext emptyList()
+    val json = org.json.JSONObject(body)
+    val data = json.optJSONArray("data") ?: return@withContext emptyList()
     (0 until data.length()).map { val o = data.getJSONObject(it)
-      ModelDef(o.getString("id"), o.optString("name", o.getString("id")), o.optInt("context_window"))
+      val id = o.getString("id")
+      val name = o.optString("display_name", "").ifBlank { o.optString("name", id) }
+      ModelDef(id, name, o.optInt("context_window"))
     }.sortedBy { it.id }
-  } catch (_: Exception) { emptyList() }
+  } catch (e: Exception) {
+    android.util.Log.e("FetchModels", "Failed: ${e.message}")
+    emptyList()
+  }
 }

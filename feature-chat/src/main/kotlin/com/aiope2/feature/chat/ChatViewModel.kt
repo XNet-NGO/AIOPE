@@ -64,23 +64,13 @@ class ChatViewModel @Inject constructor(
   // LLM client — reads from ProviderStore, recreated per send
   private fun createClient(): Pair<SingleLLMPromptExecutor, LLModel> {
     val p = providerStore.getActive()
+    val mc = p.activeModelConfig()
     var baseUrl = p.effectiveApiBase().trimEnd('/')
-
-    // If user set an endpoint override, use it directly as chatCompletionsPath
-    val endpointOverride = p.endpointOverride.trim().removePrefix("/")
-
-    val chatPath: String
-    if (endpointOverride.isNotBlank()) {
-      chatPath = endpointOverride
-    } else when {
-      baseUrl.endsWith("/v1") -> {
-        baseUrl = baseUrl.removeSuffix("/v1")
-        chatPath = "v1/chat/completions"
-      }
-      baseUrl.endsWith("/openai") -> chatPath = "chat/completions"
-      else -> chatPath = "v1/chat/completions"
-    }
-
+    val eo = mc.endpointOverride.trim().removePrefix("/")
+    val chatPath = if (eo.isNotBlank()) eo
+      else if (baseUrl.endsWith("/openai")) "chat/completions"
+      else if (baseUrl.endsWith("/v1")) { baseUrl = baseUrl.removeSuffix("/v1"); "v1/chat/completions" }
+      else "v1/chat/completions"
     val settings = OpenAIClientSettings(
       baseUrl,
       ai.koog.prompt.executor.clients.ConnectionTimeoutConfig(),
@@ -102,8 +92,9 @@ class ChatViewModel @Inject constructor(
 
   private fun getSystemPrompt(): String {
     val p = providerStore.getActive()
-    val override = p.effectiveSystemPrompt()
-    return override ?: "You are AIOPE, an AI coding assistant on Android. Use tools when asked to run commands or manage files. Be concise."
+    val mc = p.activeModelConfig()
+    return mc.systemPromptOverride
+      ?: "You are AIOPE, an AI coding assistant on Android. Use tools when asked to run commands or manage files. Be concise."
   }
 
   init {

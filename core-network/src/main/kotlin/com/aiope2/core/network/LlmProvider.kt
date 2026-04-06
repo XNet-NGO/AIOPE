@@ -2,43 +2,50 @@ package com.aiope2.core.network
 
 import org.json.JSONObject
 
+/** Per-model configuration — all settings except provider connection live here */
 data class ModelConfig(
   val modelId: String,
-  val displayName: String = "",
-  val temperature: Float? = null,
-  val maxTokens: Int? = null,
-  val topP: Float? = null,
-  val topK: Int? = null,
-  val reasoningEffort: String? = null,
+  val endpointOverride: String = "",
+  // Abilities (null = auto-detect)
   val toolsOverride: Boolean? = null,
   val visionOverride: Boolean? = null,
+  val audioOverride: Boolean? = null,
+  val videoOverride: Boolean? = null,
+  // Parameters (null = off/omit)
+  val temperature: Float? = 0.6f,
+  val topP: Float? = null,
+  val topK: Int? = null,
+  val maxTokens: Int? = null,
+  // Context
   val maxContextMessages: Int? = null,
   val systemPromptOverride: String? = null
 ) {
   fun toJson() = JSONObject().apply {
     put("modelId", modelId)
-    if (displayName.isNotBlank()) put("displayName", displayName)
-    temperature?.let { put("temperature", it.toDouble()) }
-    maxTokens?.let { put("maxTokens", it) }
-    topP?.let { put("topP", it.toDouble()) }
-    topK?.let { put("topK", it) }
-    reasoningEffort?.let { put("reasoningEffort", it) }
+    if (endpointOverride.isNotBlank()) put("endpointOverride", endpointOverride)
     toolsOverride?.let { put("toolsOverride", it) }
     visionOverride?.let { put("visionOverride", it) }
+    audioOverride?.let { put("audioOverride", it) }
+    videoOverride?.let { put("videoOverride", it) }
+    temperature?.let { put("temperature", it.toDouble()) }
+    topP?.let { put("topP", it.toDouble()) }
+    topK?.let { put("topK", it) }
+    maxTokens?.let { put("maxTokens", it) }
     maxContextMessages?.let { put("maxContextMessages", it) }
     systemPromptOverride?.let { put("systemPromptOverride", it) }
   }
   companion object {
     fun fromJson(j: JSONObject) = ModelConfig(
       modelId = j.getString("modelId"),
-      displayName = j.optString("displayName", ""),
-      temperature = if (j.has("temperature")) j.getDouble("temperature").toFloat() else null,
-      maxTokens = if (j.has("maxTokens")) j.getInt("maxTokens") else null,
-      topP = if (j.has("topP")) j.getDouble("topP").toFloat() else null,
-      topK = if (j.has("topK")) j.getInt("topK") else null,
-      reasoningEffort = if (j.has("reasoningEffort")) j.getString("reasoningEffort") else null,
+      endpointOverride = j.optString("endpointOverride", ""),
       toolsOverride = if (j.has("toolsOverride")) j.optBoolean("toolsOverride") else null,
       visionOverride = if (j.has("visionOverride")) j.optBoolean("visionOverride") else null,
+      audioOverride = if (j.has("audioOverride")) j.optBoolean("audioOverride") else null,
+      videoOverride = if (j.has("videoOverride")) j.optBoolean("videoOverride") else null,
+      temperature = if (j.has("temperature")) j.getDouble("temperature").toFloat() else 0.6f,
+      topP = if (j.has("topP")) j.getDouble("topP").toFloat() else null,
+      topK = if (j.has("topK")) j.getInt("topK") else null,
+      maxTokens = if (j.has("maxTokens")) j.getInt("maxTokens") else null,
       maxContextMessages = if (j.has("maxContextMessages")) j.getInt("maxContextMessages") else null,
       systemPromptOverride = if (j.has("systemPromptOverride")) j.getString("systemPromptOverride") else null,
     )
@@ -55,55 +62,28 @@ data class ModelDef(
   val supportsVideo: Boolean = false
 )
 
+/** Provider profile — only connection info + selected model + per-model configs */
 data class ProviderProfile(
   val id: String = java.util.UUID.randomUUID().toString(),
   val builtinId: String = "custom",
   val label: String = "",
   val apiKey: String = "",
   val apiBase: String = "",
-  val endpointOverride: String = "",
   val selectedModelId: String = "",
   val isActive: Boolean = false,
-  // Ability overrides (null = auto-detect)
-  val toolsOverride: Boolean? = null,
-  val visionOverride: Boolean? = null,
-  val audioOverride: Boolean? = null,
-  val videoOverride: Boolean? = null,
-  // Parameters (null = off/omit)
-  val temperature: Float? = 0.6f,
-  val maxTokens: Int? = null,
-  val topP: Float? = null,
-  val topK: Int? = null,
-  val reasoningEffort: String? = null,
-  val maxContextMessages: Int? = null,
-  val systemPromptOverride: String? = null,
   val modelConfigs: Map<String, ModelConfig> = emptyMap()
 ) {
   fun effectiveModel(): String = selectedModelId
   fun effectiveApiBase(): String = apiBase.ifBlank { ProviderTemplates.byId[builtinId]?.apiBase ?: "" }
-  fun effectiveTemperature(): Float? = modelConfigs[selectedModelId]?.temperature ?: temperature
-  fun effectiveMaxTokens(): Int? = modelConfigs[selectedModelId]?.maxTokens ?: maxTokens
-  fun effectiveTopP(): Float? = modelConfigs[selectedModelId]?.topP ?: topP
-  fun effectiveTopK(): Int? = modelConfigs[selectedModelId]?.topK ?: topK
-  fun effectiveMaxContext(): Int? = modelConfigs[selectedModelId]?.maxContextMessages ?: maxContextMessages
-  fun effectiveSystemPrompt(): String? = modelConfigs[selectedModelId]?.systemPromptOverride ?: systemPromptOverride
+
+  /** Get or create config for the selected model */
+  fun activeModelConfig(): ModelConfig =
+    modelConfigs[selectedModelId] ?: ModelConfig(modelId = selectedModelId)
 
   fun toJson() = JSONObject().apply {
     put("id", id); put("builtinId", builtinId); put("label", label)
-    put("apiKey", apiKey); put("apiBase", apiBase); put("endpointOverride", endpointOverride)
-    put("selectedModelId", selectedModelId)
-    put("isActive", isActive)
-    toolsOverride?.let { put("toolsOverride", it) }
-    visionOverride?.let { put("visionOverride", it) }
-    audioOverride?.let { put("audioOverride", it) }
-    videoOverride?.let { put("videoOverride", it) }
-    temperature?.let { put("temperature", it.toDouble()) }
-    maxTokens?.let { put("maxTokens", it) }
-    topP?.let { put("topP", it.toDouble()) }
-    topK?.let { put("topK", it) }
-    reasoningEffort?.let { put("reasoningEffort", it) }
-    maxContextMessages?.let { put("maxContextMessages", it) }
-    systemPromptOverride?.let { put("systemPromptOverride", it) }
+    put("apiKey", apiKey); put("apiBase", apiBase)
+    put("selectedModelId", selectedModelId); put("isActive", isActive)
     if (modelConfigs.isNotEmpty()) {
       val mc = JSONObject()
       modelConfigs.forEach { (k, v) -> mc.put(k, v.toJson()) }
@@ -121,21 +101,8 @@ data class ProviderProfile(
       return ProviderProfile(
         id = j.optString("id"), builtinId = j.optString("builtinId", "custom"),
         label = j.optString("label"), apiKey = j.optString("apiKey"),
-        apiBase = j.optString("apiBase"), endpointOverride = j.optString("endpointOverride"),
-        selectedModelId = j.optString("selectedModelId"),
-        isActive = j.optBoolean("isActive"),
-        toolsOverride = if (j.has("toolsOverride")) j.optBoolean("toolsOverride") else null,
-        visionOverride = if (j.has("visionOverride")) j.optBoolean("visionOverride") else null,
-        audioOverride = if (j.has("audioOverride")) j.optBoolean("audioOverride") else null,
-        videoOverride = if (j.has("videoOverride")) j.optBoolean("videoOverride") else null,
-        temperature = if (j.has("temperature")) j.getDouble("temperature").toFloat() else null,
-        maxTokens = if (j.has("maxTokens")) j.getInt("maxTokens") else null,
-        topP = if (j.has("topP")) j.getDouble("topP").toFloat() else null,
-        topK = if (j.has("topK")) j.getInt("topK") else null,
-        reasoningEffort = if (j.has("reasoningEffort")) j.getString("reasoningEffort") else null,
-        maxContextMessages = if (j.has("maxContextMessages")) j.getInt("maxContextMessages") else null,
-        systemPromptOverride = if (j.has("systemPromptOverride")) j.getString("systemPromptOverride") else null,
-        modelConfigs = mc
+        apiBase = j.optString("apiBase"), selectedModelId = j.optString("selectedModelId"),
+        isActive = j.optBoolean("isActive"), modelConfigs = mc
       )
     }
   }
@@ -148,26 +115,24 @@ data class BuiltinProvider(
   val apiBase: String? = null,
   val apiKeyHint: String = "",
   val requiresApiKey: Boolean = true,
-  val supportsTools: Boolean = true,
-  val supportsVision: Boolean = false,
   val defaultModels: List<ModelDef> = emptyList()
 )
 
 object ProviderTemplates {
   val ALL = listOf(
-    BuiltinProvider("pollinations", "Pollinations", "🌸", "https://text.pollinations.ai/openai", "(no key)", false, defaultModels = listOf(
+    BuiltinProvider("pollinations", "Pollinations", "🌸", "https://text.pollinations.ai/openai", "(no key)", false, listOf(
       ModelDef("openai-fast", "GPT-OSS Fast", 32_768), ModelDef("openai", "GPT-OSS", 32_768), ModelDef("openai-large", "GPT-OSS Large", 32_768))),
-    BuiltinProvider("openai", "OpenAI", "🤖", apiKeyHint = "sk-…", supportsVision = true, defaultModels = listOf(
+    BuiltinProvider("openai", "OpenAI", "🤖", apiKeyHint = "sk-…", defaultModels = listOf(
       ModelDef("gpt-4o", "GPT-4o", 128_000, true, true), ModelDef("gpt-4o-mini", "GPT-4o mini", 128_000, true, true), ModelDef("o4-mini", "o4-mini", 200_000, true, true))),
-    BuiltinProvider("anthropic", "Anthropic", "🧠", apiKeyHint = "sk-ant-…", supportsVision = true, defaultModels = listOf(
+    BuiltinProvider("anthropic", "Anthropic", "🧠", apiKeyHint = "sk-ant-…", defaultModels = listOf(
       ModelDef("claude-sonnet-4-20250514", "Claude Sonnet 4", 200_000, true, true), ModelDef("claude-3-5-haiku-20241022", "Claude 3.5 Haiku", 200_000, true, true))),
-    BuiltinProvider("google_ai_studio", "Google AI Studio", "✨", "https://generativelanguage.googleapis.com/v1beta/openai", "AIza…", supportsVision = true, defaultModels = listOf(
+    BuiltinProvider("google_ai_studio", "Google AI Studio", "✨", "https://generativelanguage.googleapis.com/v1beta/openai", "AIza…", defaultModels = listOf(
       ModelDef("gemini-2.0-flash", "Gemini 2.0 Flash", 1_000_000, true, true))),
     BuiltinProvider("deepseek", "DeepSeek", "🔍", apiKeyHint = "sk-…", defaultModels = listOf(
       ModelDef("deepseek-chat", "DeepSeek V3", 64_000), ModelDef("deepseek-reasoner", "DeepSeek R1", 64_000, false))),
-    BuiltinProvider("openrouter", "OpenRouter", "🔀", "https://openrouter.ai/api/v1", "sk-or-…", supportsVision = true, defaultModels = listOf(
+    BuiltinProvider("openrouter", "OpenRouter", "🔀", "https://openrouter.ai/api/v1", "sk-or-…", defaultModels = listOf(
       ModelDef("google/gemini-2.0-flash-exp:free", "Gemini 2.0 Flash (free)", 1_000_000), ModelDef("deepseek/deepseek-chat-v3-0324:free", "DeepSeek V3 (free)", 64_000))),
-    BuiltinProvider("github_models", "GitHub Models", "🐙", "https://models.github.ai/inference", "github_pat_…", supportsVision = true, defaultModels = listOf(
+    BuiltinProvider("github_models", "GitHub Models", "🐙", "https://models.github.ai/inference", "github_pat_…", defaultModels = listOf(
       ModelDef("gpt-4o", "GPT-4o", 131_072, true, true), ModelDef("DeepSeek-R1", "DeepSeek R1", 128_000, false))),
     BuiltinProvider("groq", "Groq", "⚡", "https://api.groq.com/openai/v1", "gsk_…", defaultModels = listOf(
       ModelDef("llama-3.3-70b-versatile", "Llama 3.3 70B", 128_000))),

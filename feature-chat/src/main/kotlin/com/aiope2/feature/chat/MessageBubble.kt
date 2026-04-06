@@ -25,7 +25,8 @@ fun MessageBubble(
   message: ChatMessage,
   onEdit: (() -> Unit)? = null,
   onRetry: (() -> Unit)? = null,
-  onCopy: (() -> Unit)? = null
+  onCompact: (() -> Unit)? = null,
+  onFork: (() -> Unit)? = null
 ) {
   val isUser = message.role == Role.USER
   val alignment = if (isUser) Arrangement.End else Arrangement.Start
@@ -87,6 +88,12 @@ fun MessageBubble(
             }
             if (!isUser && onRetry != null) {
               DropdownMenuItem(text = { Text("Retry") }, onClick = { showMenu = false; onRetry() })
+            }
+            if (onCompact != null) {
+              DropdownMenuItem(text = { Text("Compact") }, onClick = { showMenu = false; onCompact() })
+            }
+            if (onFork != null) {
+              DropdownMenuItem(text = { Text("Fork") }, onClick = { showMenu = false; onFork() })
             }
           }
         }

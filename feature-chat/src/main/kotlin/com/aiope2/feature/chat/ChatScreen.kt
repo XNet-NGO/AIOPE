@@ -44,6 +44,8 @@ fun ChatScreen(viewModel: ChatViewModel = hiltViewModel(), onOpenSettings: () ->
         onChats = { showConversations = true },
         onEditMessage = { text, idx -> viewModel.editAndResend(text, idx) },
         onRetry = { idx -> viewModel.retry(idx) },
+        onCompact = { idx -> viewModel.compact(idx) },
+        onFork = { idx -> viewModel.fork(idx) },
         modifier = Modifier.weight(1f)
       )
       if (terminalVisible) {
@@ -62,6 +64,8 @@ fun ChatScreen(viewModel: ChatViewModel = hiltViewModel(), onOpenSettings: () ->
         onChats = { showConversations = true },
         onEditMessage = { text, idx -> viewModel.editAndResend(text, idx) },
         onRetry = { idx -> viewModel.retry(idx) },
+        onCompact = { idx -> viewModel.compact(idx) },
+        onFork = { idx -> viewModel.fork(idx) },
         modifier = Modifier.weight(1f)
       )
       if (terminalVisible) {
@@ -87,6 +91,8 @@ private fun ChatContent(
   onChats: () -> Unit,
   onEditMessage: (String, Int) -> Unit = { _, _ -> },
   onRetry: (Int) -> Unit = {},
+  onCompact: (Int) -> Unit = {},
+  onFork: (Int) -> Unit = {},
   modifier: Modifier = Modifier
 ) {
   var showModelPicker by remember { mutableStateOf(false) }
@@ -142,6 +148,8 @@ private fun ChatContent(
       MessageList(messages = messages,
         onEdit = { idx -> onEditMessage(messages[idx].content, idx) },
         onRetry = { idx -> onRetry(idx) },
+        onCompact = { idx -> onCompact(idx) },
+        onFork = { idx -> onFork(idx) },
         modifier = Modifier.weight(1f))
     }
 
@@ -177,7 +185,7 @@ private fun EmptyState(onSend: (String) -> Unit, modifier: Modifier = Modifier) 
 // ── Message list ──
 
 @Composable
-private fun MessageList(messages: List<ChatMessage>, onEdit: ((Int) -> Unit)? = null, onRetry: ((Int) -> Unit)? = null, modifier: Modifier = Modifier) {
+private fun MessageList(messages: List<ChatMessage>, onEdit: ((Int) -> Unit)? = null, onRetry: ((Int) -> Unit)? = null, onCompact: ((Int) -> Unit)? = null, onFork: ((Int) -> Unit)? = null, modifier: Modifier = Modifier) {
   val listState = rememberLazyListState()
   val scope = rememberCoroutineScope()
   LaunchedEffect(messages.size) {
@@ -189,7 +197,9 @@ private fun MessageList(messages: List<ChatMessage>, onEdit: ((Int) -> Unit)? = 
       MessageBubble(
         message = msg,
         onEdit = if (msg.role == Role.USER) {{ onEdit?.invoke(idx) }} else null,
-        onRetry = if (msg.role == Role.ASSISTANT) {{ onRetry?.invoke(idx) }} else null
+        onRetry = if (msg.role == Role.ASSISTANT) {{ onRetry?.invoke(idx) }} else null,
+        onCompact = { onCompact?.invoke(idx) },
+        onFork = { onFork?.invoke(idx) }
       )
       Spacer(Modifier.height(8.dp))
     }

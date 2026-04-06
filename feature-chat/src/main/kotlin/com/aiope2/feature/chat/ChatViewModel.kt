@@ -203,9 +203,49 @@ class ChatViewModel @Inject constructor(
     if (atIndex < msgs.size && msgs[atIndex].role == Role.ASSISTANT) {
       msgs.removeAt(atIndex)
       _messages.value = msgs
-      // Find last user message and re-run without adding it again
       val lastUser = msgs.lastOrNull { it.role == Role.USER }
       if (lastUser != null) resend(lastUser.content)
+    }
+  }
+
+  /** Compact: summarize messages 0..atIndex into a single context message */
+  fun compact(atIndex: Int) {
+    val msgs = _messages.value
+    if (atIndex < 1) return
+    val toCompact = msgs.take(atIndex + 1)
+    val transcript = toCompact.joinToString("\n") { "[${it.role.value}] ${it.content.take(2000)}" }
+    val remaining = msgs.drop(atIndex + 1)
+
+    viewModelScope.launch(Dispatchers.IO) {
+      _isStreaming.value = true
+      try {
+        val (executor, model) = createClient()
+        val agent = AIAgent(
+          promptExecutor = executor,
+          systemPrompt = "Summarize this conversation concisely, preserving all key context needed to continue. Start with [Summary].",
+          llmModel = model, toolRegistry = ToolRegistry { }
+        )
+        val summary = agent.run(transcript)
+        val summaryMsg = ChatMessage(role = Role.SYSTEM, content = summary)
+        _messages.value = listOf(summaryMsg) + remaining
+      } catch (e: Exception) {
+        // Don't lose messages on failure
+      } finally { _isStreaming.value = false }
+    }
+  }
+
+  /** Fork: create new conversation from messages 0..atIndex */
+  fun fork(atIndex: Int) {
+    val forkedMsgs = _messages.value.take(atIndex + 1)
+    val newId = UUID.randomUUID().toString()
+    viewModelScope.launch {
+      chatDao.insertConversation(ConversationEntity(id = newId, title = "Fork: ${forkedMsgs.firstOrNull { it.role == Role.USER }?.content?.take(30) ?: "chat"}"))
+      forkedMsgs.forEach { msg ->
+        chatDao.insertMessage(MessageEntity(id = UUID.randomUUID().toString(), conversationId = newId, role = msg.role.value, content = msg.content))
+      }
+      conversationId = newId
+      _messages.value = forkedMsgs
+      refreshConversations()
     }
   }
 

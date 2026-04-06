@@ -23,6 +23,9 @@ android {
   packaging {
     resources {
       excludes.add("/META-INF/{AL2.0,LGPL2.1}")
+      excludes.add("/META-INF/INDEX.LIST")
+      excludes.add("/META-INF/io.netty.versions.properties")
+      excludes.add("/META-INF/DEPENDENCIES")
     }
     jniLibs.useLegacyPackaging = true
   }
@@ -40,6 +43,7 @@ dependencies {
   implementation(project(":core-designsystem"))
   implementation(project(":core-navigation"))
   implementation(project(":core-data"))
+  implementation(project(":core-terminal"))
 
   // feature modules
   implementation(project(":feature-chat"))

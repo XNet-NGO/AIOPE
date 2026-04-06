@@ -7,7 +7,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Send
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -19,7 +18,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(viewModel: ChatViewModel = hiltViewModel()) {
   val messages by viewModel.messages.collectAsStateWithLifecycle()
@@ -29,21 +27,9 @@ fun ChatScreen(viewModel: ChatViewModel = hiltViewModel()) {
   val isLandscape = config.screenWidthDp > config.screenHeightDp
 
   if (isLandscape) {
-    LandscapeLayout(
-      messages = messages,
-      isStreaming = isStreaming,
-      terminalVisible = terminalVisible,
-      onSend = viewModel::send,
-      onToggleTerminal = viewModel::toggleTerminal
-    )
+    LandscapeLayout(messages, isStreaming, terminalVisible, viewModel::send, viewModel::toggleTerminal)
   } else {
-    PortraitLayout(
-      messages = messages,
-      isStreaming = isStreaming,
-      terminalVisible = terminalVisible,
-      onSend = viewModel::send,
-      onToggleTerminal = viewModel::toggleTerminal
-    )
+    PortraitLayout(messages, isStreaming, terminalVisible, viewModel::send, viewModel::toggleTerminal)
   }
 }
 
@@ -73,17 +59,21 @@ private fun PortraitLayout(
       )
     }
   ) { padding ->
-    Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-      // Chat messages
-      val weight = if (terminalVisible) 0.6f else 1f
-      MessageList(messages = messages, modifier = Modifier.weight(weight))
+    Column(
+      modifier = Modifier
+        .fillMaxSize()
+        .padding(padding)
+        .imePadding()
+    ) {
+      // Chat messages take remaining space
+      MessageList(messages = messages, modifier = Modifier.weight(1f))
 
       // Input bar
       ChatInput(onSend = onSend, isStreaming = isStreaming)
 
-      // Terminal panel (bottom)
+      // Terminal panel (fixed height)
       if (terminalVisible) {
-        TerminalPlaceholder(modifier = Modifier.weight(0.4f))
+        TerminalPlaceholder(modifier = Modifier.fillMaxWidth().height(240.dp))
       }
     }
   }
@@ -99,7 +89,6 @@ private fun LandscapeLayout(
   onToggleTerminal: () -> Unit
 ) {
   Row(modifier = Modifier.fillMaxSize()) {
-    // Chat side
     Scaffold(
       modifier = Modifier.weight(1f),
       topBar = {
@@ -118,13 +107,17 @@ private fun LandscapeLayout(
         )
       }
     ) { padding ->
-      Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+      Column(
+        modifier = Modifier
+          .fillMaxSize()
+          .padding(padding)
+          .imePadding()
+      ) {
         MessageList(messages = messages, modifier = Modifier.weight(1f))
         ChatInput(onSend = onSend, isStreaming = isStreaming)
       }
     }
 
-    // Terminal side (full height, no appbar)
     if (terminalVisible) {
       TerminalPlaceholder(modifier = Modifier.width(360.dp).fillMaxHeight())
     }
@@ -181,10 +174,12 @@ private fun ChatInput(onSend: (String) -> Unit, isStreaming: Boolean) {
 
 @Composable
 private fun TerminalPlaceholder(modifier: Modifier = Modifier) {
+  // TODO: Replace with real Termux TerminalView via AndroidView
+  // For now, show a placeholder that proves the panel works
   Box(
     modifier = modifier.background(MaterialTheme.colorScheme.surfaceVariant).padding(12.dp),
     contentAlignment = Alignment.Center
   ) {
-    Text("Terminal (Termux TerminalView will go here)", style = MaterialTheme.typography.bodySmall)
+    Text("Terminal — TerminalView integration next", style = MaterialTheme.typography.bodySmall)
   }
 }

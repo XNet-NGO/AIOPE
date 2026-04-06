@@ -4,6 +4,7 @@ plugins {
   id("aiope2.android.feature")
   id("aiope2.android.hilt")
   id("aiope2.spotless")
+  id("com.google.devtools.ksp")
 }
 
 android {
@@ -12,6 +13,7 @@ android {
 
 dependencies {
   implementation(project(":core-data"))
+  implementation(project(":core-terminal"))
 
   implementation(libs.androidx.lifecycle.runtimeCompose)
   implementation(libs.androidx.lifecycle.viewModelCompose)
@@ -20,6 +22,14 @@ dependencies {
   implementation(libs.openai.client)
   implementation(libs.ktor.client.okhttp)
 
+  // koog agents
+  implementation(libs.koog.agents)
+
   // markdown
   implementation(libs.markwon.core)
+
+  // room
+  implementation(libs.androidx.room.runtime)
+  implementation(libs.androidx.room.ktx)
+  ksp(libs.androidx.room.compiler)
 }

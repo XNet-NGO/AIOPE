@@ -1,5 +1,5 @@
 [versions]
-androidGradlePlugin = "8.6.0"
+androidGradlePlugin = "9.0.1"
 androidxActivity = "1.9.3"
 androidxAppCompat = "1.7.0"
 androidxCompose = "1.7.8"
@@ -11,16 +11,18 @@ androidxHiltNavigationCompose = "1.2.0"
 androidxLifecycle = "2.8.7"
 androidxProfileinstaller = "1.4.1"
 androidxStartup = "1.2.0"
-androidxRoom = "2.6.1"
+androidxRoom = "2.7.1"
 androidxWorker = "2.9.0"
-hilt = "2.55"
+kotlinxSerialization = "1.7.3"
+hilt = "2.59.2"
 hiltWorker = "1.2.0"
-kotlin = "2.1.20"
+kotlin = "2.3.0"
 kotlinxCoroutines = "1.10.1"
-ksp = "2.1.20-1.0.32"
+ksp = "2.3.6"
 okhttp = "4.12.0"
 openaiKotlin = "4.1.0"
 ktor = "3.1.1"
+koog = "0.7.3"
 markwon = "4.6.2"
 spotless = "6.7.0"
 
@@ -57,6 +59,9 @@ okhttp-logging = { group = "com.squareup.okhttp3", name = "logging-interceptor",
 # openai-kotlin
 openai-client = { group = "com.aallam.openai", name = "openai-client", version.ref = "openaiKotlin" }
 ktor-client-okhttp = { group = "io.ktor", name = "ktor-client-okhttp", version.ref = "ktor" }
+
+# koog
+koog-agents = { group = "ai.koog", name = "koog-agents", version.ref = "koog" }
 
 # markdown
 markwon-core = { group = "io.noties.markwon", name = "core", version.ref = "markwon" }

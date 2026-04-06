@@ -7,4 +7,9 @@ data class ChatMessage(
   val timestamp: Long = System.currentTimeMillis()
 )
 
-enum class Role { USER, ASSISTANT, SYSTEM, TOOL }
+enum class Role(val value: String) {
+  USER("user"), ASSISTANT("assistant"), SYSTEM("system"), TOOL("tool");
+  companion object {
+    fun from(s: String) = entries.firstOrNull { it.value == s } ?: USER
+  }
+}

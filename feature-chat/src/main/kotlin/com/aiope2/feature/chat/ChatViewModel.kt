@@ -43,15 +43,14 @@ class ChatViewModel @Inject constructor(
 
   // LLM client — reads from ProviderStore, recreated per send
   private fun createClient(): Pair<SingleLLMPromptExecutor, LLModel> {
-    val provider = providerStore.getActiveProvider()
-    // Gateway server pattern: baseUrl is the root, path is /chat/completions
-    val baseUrl = provider.baseUrl.trimEnd('/')
+    val active = providerStore.getActive()
+    val baseUrl = active.baseUrl().trimEnd('/')
     val client = OpenAILLMClient(
-      apiKey = provider.apiKey.ifBlank { "unused" },
+      apiKey = active.apiKey.ifBlank { "unused" },
       settings = OpenAIClientSettings(baseUrl)
     )
     val model = LLModel(
-      LLMProvider.OpenAI, provider.defaultModel,
+      LLMProvider.OpenAI, active.modelId,
       listOf(
         ai.koog.prompt.llm.LLMCapability.Completion,
         ai.koog.prompt.llm.LLMCapability.Tools,

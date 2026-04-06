@@ -1,48 +1,53 @@
 package com.aiope2.feature.chat.settings
 
 import android.content.Context
-import android.content.SharedPreferences
 import com.aiope2.core.network.LlmProvider
-import com.aiope2.core.network.ProviderDefaults
+import com.aiope2.core.network.ProviderRegistry
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
+data class ActiveProvider(
+  val providerId: String,
+  val modelId: String,
+  val apiKey: String = "",
+  val customBaseUrl: String = ""
+) {
+  fun resolve(): LlmProvider? = ProviderRegistry.get(providerId)
+  fun baseUrl(): String = customBaseUrl.ifBlank { resolve()?.baseUrl ?: "https://api.openai.com/v1" }
+}
+
 @Singleton
 class ProviderStore @Inject constructor(@ApplicationContext ctx: Context) {
-  private val prefs: SharedPreferences = ctx.getSharedPreferences("providers", Context.MODE_PRIVATE)
+  private val prefs = ctx.getSharedPreferences("providers", Context.MODE_PRIVATE)
 
-  fun getActiveProvider(): LlmProvider {
-    val name = prefs.getString("active_name", null) ?: return ProviderDefaults.providers.first()
-    return ProviderDefaults.providers.firstOrNull { it.name == name }
-      ?: LlmProvider(
-        name = name,
-        baseUrl = prefs.getString("active_url", "") ?: "",
-        apiKey = prefs.getString("active_key", "") ?: "",
-        defaultModel = prefs.getString("active_model", "") ?: ""
-      )
+  fun getActive(): ActiveProvider {
+    val pid = prefs.getString("active_id", "pollinations") ?: "pollinations"
+    val provider = ProviderRegistry.get(pid) ?: ProviderRegistry.ALL.first()
+    return ActiveProvider(
+      providerId = pid,
+      modelId = prefs.getString("model_$pid", provider.defaultModels.firstOrNull()?.id ?: "") ?: "",
+      apiKey = prefs.getString("key_$pid", "") ?: "",
+      customBaseUrl = prefs.getString("url_$pid", "") ?: ""
+    )
   }
 
-  fun setActiveProvider(provider: LlmProvider) {
-    prefs.edit()
-      .putString("active_name", provider.name)
-      .putString("active_url", provider.baseUrl)
-      .putString("active_key", provider.apiKey)
-      .putString("active_model", provider.defaultModel)
-      .apply()
+  fun setActiveProvider(id: String) {
+    prefs.edit().putString("active_id", id).apply()
   }
 
-  fun getApiKey(providerName: String): String =
-    prefs.getString("key_$providerName", "") ?: ""
-
-  fun setApiKey(providerName: String, key: String) {
-    prefs.edit().putString("key_$providerName", key).apply()
+  fun setApiKey(providerId: String, key: String) {
+    prefs.edit().putString("key_$providerId", key).apply()
   }
 
-  fun getModel(providerName: String): String =
-    prefs.getString("model_$providerName", "") ?: ""
-
-  fun setModel(providerName: String, model: String) {
-    prefs.edit().putString("model_$providerName", model).apply()
+  fun setModel(providerId: String, modelId: String) {
+    prefs.edit().putString("model_$providerId", modelId).apply()
   }
+
+  fun setCustomBaseUrl(providerId: String, url: String) {
+    prefs.edit().putString("url_$providerId", url).apply()
+  }
+
+  fun getApiKey(providerId: String): String = prefs.getString("key_$providerId", "") ?: ""
+  fun getModel(providerId: String): String = prefs.getString("model_$providerId", "") ?: ""
 }

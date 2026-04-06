@@ -11,82 +11,47 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.aiope2.core.network.LlmProvider
-import com.aiope2.core.network.ProviderDefaults
+import com.aiope2.core.network.ProviderRegistry
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(
-  providerStore: ProviderStore,
-  onBack: () -> Unit
-) {
-  var activeProvider by remember { mutableStateOf(providerStore.getActiveProvider()) }
-  var editingProvider by remember { mutableStateOf<LlmProvider?>(null) }
+fun SettingsScreen(providerStore: ProviderStore, onBack: () -> Unit) {
+  var active by remember { mutableStateOf(providerStore.getActive()) }
+  var editingId by remember { mutableStateOf<String?>(null) }
 
-  if (editingProvider != null) {
-    ProviderEditor(
-      provider = editingProvider!!,
-      providerStore = providerStore,
-      onSave = { updated ->
-        providerStore.setActiveProvider(updated)
-        if (updated.apiKey.isNotBlank()) providerStore.setApiKey(updated.name, updated.apiKey)
-        if (updated.defaultModel.isNotBlank()) providerStore.setModel(updated.name, updated.defaultModel)
-        activeProvider = updated
-        editingProvider = null
-      },
-      onBack = { editingProvider = null }
-    )
+  if (editingId != null) {
+    val provider = ProviderRegistry.get(editingId!!) ?: return
+    ProviderEditor(provider, providerStore, onBack = { editingId = null; active = providerStore.getActive() })
     return
   }
 
-  Scaffold(
-    topBar = {
-      TopAppBar(
-        title = { Text("Settings") },
-        navigationIcon = {
-          IconButton(onClick = onBack) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
-          }
-        }
-      )
-    }
-  ) { padding ->
+  Scaffold(topBar = {
+    TopAppBar(title = { Text("Settings") }, navigationIcon = {
+      IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
+    })
+  }) { padding ->
     LazyColumn(modifier = Modifier.fillMaxSize().padding(padding)) {
-      item {
-        Text("LLM Provider", style = MaterialTheme.typography.titleSmall,
-          modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 4.dp))
-      }
-      items(ProviderDefaults.providers) { provider ->
-        val isActive = provider.name == activeProvider.name
+      item { Text("LLM Provider", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 4.dp)) }
+      items(ProviderRegistry.ALL) { provider ->
+        val isActive = provider.id == active.providerId
+        val hasKey = providerStore.getApiKey(provider.id).isNotBlank() || !provider.requiresApiKey
         ListItem(
-          headlineContent = { Text(provider.name) },
+          headlineContent = { Text("${provider.icon} ${provider.displayName}") },
           supportingContent = {
-            val key = providerStore.getApiKey(provider.name)
-            val hasKey = key.isNotBlank() || provider.apiKey.isNotBlank() || provider.name == "pollinations" || provider.name == "cline"
-            Text(
-              "${provider.defaultModel}${if (hasKey) "" else " (needs key)"}",
-              style = MaterialTheme.typography.bodySmall
-            )
+            val model = providerStore.getModel(provider.id).ifBlank { provider.defaultModels.firstOrNull()?.displayName ?: "" }
+            Text("$model${if (hasKey) "" else " · needs key"}", style = MaterialTheme.typography.bodySmall)
           },
-          trailingContent = {
-            if (isActive) Text("✓", color = MaterialTheme.colorScheme.primary)
-          },
+          trailingContent = { if (isActive) Text("✓", color = MaterialTheme.colorScheme.primary) },
           modifier = Modifier.clickable {
-            val key = providerStore.getApiKey(provider.name)
-            val model = providerStore.getModel(provider.name)
-            val p = provider.copy(
-              apiKey = key.ifBlank { provider.apiKey },
-              defaultModel = model.ifBlank { provider.defaultModel }
-            )
-            providerStore.setActiveProvider(p)
-            activeProvider = p
+            providerStore.setActiveProvider(provider.id)
+            active = providerStore.getActive()
           }
         )
       }
       item {
-        TextButton(
-          onClick = { editingProvider = activeProvider },
-          modifier = Modifier.padding(16.dp)
-        ) { Text("Edit API Key / Model") }
+        TextButton(onClick = { editingId = active.providerId }, modifier = Modifier.padding(16.dp)) {
+          Text("Edit ${ProviderRegistry.get(active.providerId)?.displayName ?: "Provider"}")
+        }
       }
     }
   }
@@ -94,45 +59,67 @@ fun SettingsScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ProviderEditor(
-  provider: LlmProvider,
-  providerStore: ProviderStore,
-  onSave: (LlmProvider) -> Unit,
-  onBack: () -> Unit
-) {
-  var apiKey by remember { mutableStateOf(providerStore.getApiKey(provider.name).ifBlank { provider.apiKey }) }
-  var model by remember { mutableStateOf(providerStore.getModel(provider.name).ifBlank { provider.defaultModel }) }
+private fun ProviderEditor(provider: LlmProvider, store: ProviderStore, onBack: () -> Unit) {
+  var apiKey by remember { mutableStateOf(store.getApiKey(provider.id)) }
+  var selectedModel by remember { mutableStateOf(store.getModel(provider.id).ifBlank { provider.defaultModels.firstOrNull()?.id ?: "" }) }
+  var customUrl by remember { mutableStateOf("") }
+  var showModelPicker by remember { mutableStateOf(false) }
 
-  Scaffold(
-    topBar = {
-      TopAppBar(
-        title = { Text(provider.name) },
-        navigationIcon = {
-          IconButton(onClick = onBack) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
-          }
-        }
-      )
-    }
-  ) { padding ->
+  Scaffold(topBar = {
+    TopAppBar(title = { Text("${provider.icon} ${provider.displayName}") }, navigationIcon = {
+      IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
+    })
+  }) { padding ->
     Column(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
-      OutlinedTextField(
-        value = apiKey, onValueChange = { apiKey = it },
-        label = { Text("API Key") },
-        modifier = Modifier.fillMaxWidth(),
-        singleLine = true
-      )
-      Spacer(Modifier.height(12.dp))
-      OutlinedTextField(
-        value = model, onValueChange = { model = it },
-        label = { Text("Model") },
-        modifier = Modifier.fillMaxWidth(),
-        singleLine = true
-      )
+      if (provider.requiresApiKey) {
+        OutlinedTextField(value = apiKey, onValueChange = { apiKey = it },
+          label = { Text("API Key (${provider.apiKeyHint})") },
+          modifier = Modifier.fillMaxWidth(), singleLine = true)
+        Spacer(Modifier.height(12.dp))
+      }
+
+      // Model picker
+      Text("Model", style = MaterialTheme.typography.labelMedium)
+      Spacer(Modifier.height(4.dp))
+      if (provider.defaultModels.isNotEmpty()) {
+        provider.defaultModels.forEach { model ->
+          val selected = model.id == selectedModel
+          ListItem(
+            headlineContent = { Text(model.displayName) },
+            supportingContent = {
+              val info = buildString {
+                if (model.contextWindow > 0) append("${model.contextWindow / 1000}k ctx")
+                if (model.supportsTools) append(" · tools")
+                if (model.supportsVision) append(" · vision")
+                if (model.supportsReasoning) append(" · reasoning")
+                if (model.inputCostPer1M > 0) append(" · \$${model.inputCostPer1M}/\$${model.outputCostPer1M}")
+              }
+              Text(info.trimStart(' ', '·'), style = MaterialTheme.typography.bodySmall)
+            },
+            trailingContent = { if (selected) Text("✓", color = MaterialTheme.colorScheme.primary) },
+            modifier = Modifier.clickable { selectedModel = model.id }
+          )
+        }
+      } else {
+        OutlinedTextField(value = selectedModel, onValueChange = { selectedModel = it },
+          label = { Text("Model ID") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+      }
+
+      if (provider.id == "custom" || provider.id == "ollama") {
+        Spacer(Modifier.height(12.dp))
+        OutlinedTextField(value = customUrl, onValueChange = { customUrl = it },
+          label = { Text("Base URL") }, modifier = Modifier.fillMaxWidth(), singleLine = true,
+          placeholder = { Text(provider.baseUrl ?: "https://api.example.com/v1") })
+      }
+
       Spacer(Modifier.height(16.dp))
       Button(onClick = {
-        onSave(provider.copy(apiKey = apiKey, defaultModel = model))
-      }) { Text("Save") }
+        if (apiKey.isNotBlank()) store.setApiKey(provider.id, apiKey)
+        if (selectedModel.isNotBlank()) store.setModel(provider.id, selectedModel)
+        if (customUrl.isNotBlank()) store.setCustomBaseUrl(provider.id, customUrl)
+        store.setActiveProvider(provider.id)
+        onBack()
+      }) { Text("Save & Activate") }
     }
   }
 }

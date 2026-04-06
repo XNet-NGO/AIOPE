@@ -64,11 +64,32 @@ class ChatViewModel @Inject constructor(
   // LLM client — reads from ProviderStore, recreated per send
   private fun createClient(): Pair<SingleLLMPromptExecutor, LLModel> {
     val p = providerStore.getActive()
-    val baseUrl = p.effectiveApiBase().trimEnd('/')
-    val client = OpenAILLMClient(
-      apiKey = p.apiKey.ifBlank { "unused" },
-      settings = OpenAIClientSettings(baseUrl)
+    var baseUrl = p.effectiveApiBase().trimEnd('/')
+    // Koog constructs: baseUrl + "/" + chatCompletionsPath
+    // Default chatCompletionsPath = "v1/chat/completions"
+    // Normalize so the final URL is correct for each provider
+    val chatPath: String
+    when {
+      baseUrl.endsWith("/v1") -> {
+        baseUrl = baseUrl.removeSuffix("/v1")
+        chatPath = "v1/chat/completions"
+      }
+      baseUrl.endsWith("/openai") -> {
+        // e.g. .../v1beta/openai → keep as-is, use chat/completions (no v1/ prefix)
+        chatPath = "chat/completions"
+      }
+      else -> chatPath = "v1/chat/completions"
+    }
+    val settings = OpenAIClientSettings(
+      baseUrl,
+      ai.koog.prompt.executor.clients.ConnectionTimeoutConfig(),
+      chatPath,
+      "v1/responses",
+      "v1/embeddings",
+      "v1/moderations",
+      "v1/models"
     )
+    val client = OpenAILLMClient(apiKey = p.apiKey.ifBlank { "unused" }, settings = settings)
     val model = LLModel(
       LLMProvider.OpenAI, p.effectiveModel(),
       listOf(

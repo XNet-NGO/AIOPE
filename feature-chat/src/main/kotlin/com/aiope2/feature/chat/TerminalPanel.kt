@@ -13,6 +13,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -62,7 +63,7 @@ object TerminalSessionHolder {
 }
 
 @Composable
-fun TerminalPanel(modifier: Modifier = Modifier) {
+fun TerminalPanel(keyboardVisible: Boolean, modifier: Modifier = Modifier) {
   val ctx = LocalContext.current
   val shells = remember { ShellDiscovery.getShells(ctx) }
   val availableShells = shells.filter { it.available }
@@ -70,9 +71,9 @@ fun TerminalPanel(modifier: Modifier = Modifier) {
 
   Column(modifier = modifier.background(androidx.compose.ui.graphics.Color.Black)) {
     // Shell picker
-    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
+    Row(modifier = Modifier.fillMaxWidth()) {
       availableShells.forEach { shell ->
-        TextButton(onClick = { selectedShellId = shell.id }) {
+        TextButton(onClick = { selectedShellId = shell.id }, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)) {
           Text(
             shell.name,
             color = if (shell.id == selectedShellId) MaterialTheme.colorScheme.primary
@@ -87,8 +88,10 @@ fun TerminalPanel(modifier: Modifier = Modifier) {
     if (shell != null) {
       // Terminal view
       TerminalViewComposable(shell = shell, modifier = Modifier.weight(1f).fillMaxWidth())
-      // Extra keys bar
-      ExtraKeysBar()
+      // Extra keys only when keyboard is open
+      if (keyboardVisible) {
+        ExtraKeysBar()
+      }
     }
   }
 }
@@ -260,6 +263,6 @@ private fun ExtraKeysBar() {
         }
       }
     },
-    modifier = Modifier.fillMaxWidth()
+    modifier = Modifier.fillMaxWidth().padding(0.dp)
   )
 }

@@ -11,6 +11,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -126,7 +127,33 @@ private fun ProfileEditor(profile: ProviderProfile, store: ProviderStore,
       // ── Connection ──
       Section("Connection")
       Field("Base URL", p.apiBase, builtin?.apiBase ?: "https://api.example.com/v1") { p = p.copy(apiBase = it) }
-      Field("Endpoint Override", p.endpointOverride, "e.g. chat/completions") { p = p.copy(endpointOverride = it) }
+
+      // Endpoint override with preset dropdown (from gateway server)
+      var endpointExpanded by remember { mutableStateOf(false) }
+      val endpointPresets = listOf(
+        "/chat/completions", "/completions", "/responses",
+        "/embeddings", "/rerank",
+        "/audio/speech", "/audio/transcriptions",
+        "/images/generations", "/moderations"
+      )
+      Row(verticalAlignment = Alignment.CenterVertically) {
+        OutlinedTextField(value = p.endpointOverride, onValueChange = { p = p.copy(endpointOverride = it) },
+          label = { Text("Endpoint Override") }, modifier = Modifier.weight(1f), singleLine = true,
+          placeholder = { Text("/chat/completions") })
+        Spacer(Modifier.width(4.dp))
+        ExposedDropdownMenuBox(expanded = endpointExpanded, onExpandedChange = { endpointExpanded = it }) {
+          IconButton(onClick = { endpointExpanded = true }, modifier = Modifier.menuAnchor()) {
+            Icon(Icons.Default.ArrowDropDown, "Presets")
+          }
+          ExposedDropdownMenu(expanded = endpointExpanded, onDismissRequest = { endpointExpanded = false }) {
+            endpointPresets.forEach { ep ->
+              DropdownMenuItem(text = { Text(ep, style = MaterialTheme.typography.bodySmall) },
+                onClick = { p = p.copy(endpointOverride = ep); endpointExpanded = false })
+            }
+          }
+        }
+      }
+      Spacer(Modifier.height(8.dp))
       if (builtin?.requiresApiKey != false)
         Field("API Key", p.apiKey, builtin?.apiKeyHint ?: "API key") { p = p.copy(apiKey = it) }
 

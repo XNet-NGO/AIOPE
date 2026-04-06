@@ -44,7 +44,7 @@ class ChatViewModel @Inject constructor(
   // LLM client — reads from ProviderStore, recreated per send
   private fun createClient(): Pair<SingleLLMPromptExecutor, LLModel> {
     val p = providerStore.getActive()
-    val baseUrl = p.baseUrl.trimEnd('/')
+    val baseUrl = p.effectiveApiBase().trimEnd('/')
     val client = OpenAILLMClient(
       apiKey = p.apiKey.ifBlank { "unused" },
       settings = OpenAIClientSettings(baseUrl)
@@ -62,7 +62,11 @@ class ChatViewModel @Inject constructor(
   }
   private val tools = AiopeTools(application)
 
-  private fun getSystemPrompt(): String = providerStore.getActive().systemPrompt
+  private fun getSystemPrompt(): String {
+    val p = providerStore.getActive()
+    val override = p.effectiveSystemPrompt()
+    return override ?: "You are AIOPE, an AI coding assistant on Android. Use tools when asked to run commands or manage files. Be concise."
+  }
 
   init {
     viewModelScope.launch {

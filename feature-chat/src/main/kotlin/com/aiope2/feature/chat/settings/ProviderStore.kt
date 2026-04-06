@@ -1,6 +1,7 @@
 package com.aiope2.feature.chat.settings
 
 import android.content.Context
+import com.aiope2.core.network.ModelDef
 import com.aiope2.core.network.ProviderProfile
 import com.aiope2.core.network.ProviderTemplates
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -11,75 +12,75 @@ import javax.inject.Singleton
 
 @Singleton
 class ProviderStore @Inject constructor(@ApplicationContext ctx: Context) {
-  private val prefs = ctx.getSharedPreferences("provider_profiles", Context.MODE_PRIVATE)
+  private val prefs = ctx.getSharedPreferences("aiope2_providers", Context.MODE_PRIVATE)
 
-  fun getProfiles(): List<ProviderProfile> {
-    val json = prefs.getString("profiles", null) ?: return listOf(defaultProfile())
-    return try {
-      val arr = JSONArray(json)
-      (0 until arr.length()).map { fromJson(arr.getJSONObject(it)) }
-    } catch (_: Exception) { listOf(defaultProfile()) }
+  init {
+    if (getAll().isEmpty()) {
+      val default = ProviderProfile(
+        id = "default_pollinations", builtinId = "pollinations",
+        label = "Pollinations", selectedModelId = "openai-fast", isActive = true
+      )
+      save(default); setActive(default.id)
+    }
   }
 
-  fun saveProfiles(profiles: List<ProviderProfile>) {
+  fun getAll(): List<ProviderProfile> {
+    val raw = prefs.getString("profiles", "[]") ?: "[]"
+    return try {
+      val arr = JSONArray(raw)
+      (0 until arr.length()).mapNotNull { runCatching { ProviderProfile.fromJson(arr.getJSONObject(it)) }.getOrNull() }
+    } catch (_: Exception) { emptyList() }
+  }
+
+  fun getActive(): ProviderProfile =
+    getAll().firstOrNull { it.id == prefs.getString("active_id", "") } ?: getAll().firstOrNull()
+      ?: ProviderProfile(builtinId = "pollinations", label = "Pollinations", selectedModelId = "openai-fast")
+
+  fun getById(id: String): ProviderProfile? = getAll().firstOrNull { it.id == id }
+
+  fun save(profile: ProviderProfile) {
+    val list = getAll().toMutableList()
+    val idx = list.indexOfFirst { it.id == profile.id }
+    if (idx >= 0) list[idx] = profile else list.add(profile)
+    persist(list)
+  }
+
+  fun delete(id: String) {
+    persist(getAll().filter { it.id != id })
+    if (prefs.getString("active_id", "") == id) prefs.edit().remove("active_id").apply()
+  }
+
+  fun setActive(id: String) { prefs.edit().putString("active_id", id).apply() }
+
+  // Model cache with TTL
+  fun saveModelCache(builtinId: String, models: List<ModelDef>) {
     val arr = JSONArray()
-    profiles.forEach { arr.put(toJson(it)) }
+    models.forEach { m -> arr.put(JSONObject().apply {
+      put("id", m.id); put("name", m.displayName); put("ctx", m.contextWindow)
+      put("tools", m.supportsTools); put("vision", m.supportsVision)
+    }) }
+    prefs.edit().putString("mcache_$builtinId", arr.toString()).putLong("mcache_ts_$builtinId", System.currentTimeMillis()).apply()
+  }
+
+  fun getModelCache(builtinId: String): List<ModelDef>? {
+    val raw = prefs.getString("mcache_$builtinId", null) ?: return null
+    val ts = prefs.getLong("mcache_ts_$builtinId", 0)
+    if (System.currentTimeMillis() - ts > 24 * 60 * 60 * 1000) return null
+    return parseModelCache(raw)
+  }
+
+  fun getModelCacheStale(builtinId: String): List<ModelDef>? =
+    prefs.getString("mcache_$builtinId", null)?.let { parseModelCache(it) }
+
+  private fun parseModelCache(raw: String): List<ModelDef>? = runCatching {
+    val arr = JSONArray(raw)
+    (0 until arr.length()).map { val o = arr.getJSONObject(it)
+      ModelDef(o.getString("id"), o.optString("name", o.getString("id")), o.optInt("ctx"), o.optBoolean("tools", true), o.optBoolean("vision"))
+    }
+  }.getOrNull()
+
+  private fun persist(list: List<ProviderProfile>) {
+    val arr = JSONArray(); list.forEach { arr.put(it.toJson()) }
     prefs.edit().putString("profiles", arr.toString()).apply()
   }
-
-  fun getActiveId(): String = prefs.getString("active_id", null) ?: getProfiles().firstOrNull()?.id ?: ""
-
-  fun setActiveId(id: String) { prefs.edit().putString("active_id", id).apply() }
-
-  fun getActive(): ProviderProfile {
-    val id = getActiveId()
-    return getProfiles().firstOrNull { it.id == id } ?: getProfiles().firstOrNull() ?: defaultProfile()
-  }
-
-  fun addProfile(profile: ProviderProfile) {
-    val profiles = getProfiles().toMutableList()
-    profiles.add(profile)
-    saveProfiles(profiles)
-  }
-
-  fun updateProfile(profile: ProviderProfile) {
-    val profiles = getProfiles().toMutableList()
-    val idx = profiles.indexOfFirst { it.id == profile.id }
-    if (idx >= 0) profiles[idx] = profile else profiles.add(profile)
-    saveProfiles(profiles)
-  }
-
-  fun deleteProfile(id: String) {
-    val profiles = getProfiles().filter { it.id != id }
-    saveProfiles(profiles)
-    if (getActiveId() == id) setActiveId(profiles.firstOrNull()?.id ?: "")
-  }
-
-  private fun defaultProfile() = ProviderTemplates.templates.first().copy(id = "default")
-
-  private fun toJson(p: ProviderProfile) = JSONObject().apply {
-    put("id", p.id); put("name", p.name); put("baseUrl", p.baseUrl)
-    put("endpointOverride", p.endpointOverride); put("apiKey", p.apiKey)
-    put("selectedModel", p.selectedModel); put("customModel", p.customModel)
-    put("supportsVision", p.supportsVision); put("supportsAudio", p.supportsAudio)
-    put("supportsVideo", p.supportsVideo); put("supportsTools", p.supportsTools)
-    put("autoDetectAbilities", p.autoDetectAbilities)
-    put("temperature", p.temperature.toDouble()); put("topP", p.topP.toDouble())
-    put("topK", p.topK); put("maxTokens", p.maxTokens)
-    put("contextLength", p.contextLength); put("systemPrompt", p.systemPrompt)
-    put("availableModels", JSONArray(p.availableModels))
-  }
-
-  private fun fromJson(j: JSONObject) = ProviderProfile(
-    id = j.optString("id"), name = j.optString("name"), baseUrl = j.optString("baseUrl"),
-    endpointOverride = j.optString("endpointOverride"), apiKey = j.optString("apiKey"),
-    selectedModel = j.optString("selectedModel"), customModel = j.optString("customModel"),
-    supportsVision = j.optBoolean("supportsVision"), supportsAudio = j.optBoolean("supportsAudio"),
-    supportsVideo = j.optBoolean("supportsVideo"), supportsTools = j.optBoolean("supportsTools", true),
-    autoDetectAbilities = j.optBoolean("autoDetectAbilities", true),
-    temperature = j.optDouble("temperature", 0.7).toFloat(), topP = j.optDouble("topP", 1.0).toFloat(),
-    topK = j.optInt("topK"), maxTokens = j.optInt("maxTokens", 4096),
-    contextLength = j.optInt("contextLength", 10), systemPrompt = j.optString("systemPrompt", "You are a helpful AI assistant."),
-    availableModels = j.optJSONArray("availableModels")?.let { a -> (0 until a.length()).map { a.getString(it) } } ?: emptyList()
-  )
 }

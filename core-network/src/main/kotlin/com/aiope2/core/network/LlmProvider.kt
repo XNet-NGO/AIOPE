@@ -1,61 +1,176 @@
 package com.aiope2.core.network
 
-data class ModelDef(
-  val id: String,
-  val displayName: String = id
-)
+import org.json.JSONObject
 
-/** A fully user-configurable provider profile */
-data class ProviderProfile(
-  val id: String = java.util.UUID.randomUUID().toString(),
-  val name: String = "New Provider",
-  val baseUrl: String = "",
-  val endpointOverride: String = "", // e.g. /v1/chat/completions
-  val apiKey: String = "",
-  val selectedModel: String = "",
-  val customModel: String = "",
-  // Abilities
-  val supportsVision: Boolean = false,
-  val supportsAudio: Boolean = false,
-  val supportsVideo: Boolean = false,
-  val supportsTools: Boolean = true,
-  val autoDetectAbilities: Boolean = true,
-  // Parameters
-  val temperature: Float = 0.7f,
-  val topP: Float = 1.0f,
-  val topK: Int = 0,
-  val maxTokens: Int = 4096,
-  // Context
-  val contextLength: Int = 10, // number of history messages to include
-  val systemPrompt: String = "You are a helpful AI assistant.",
-  // Cached model list from /models endpoint
-  val availableModels: List<String> = emptyList()
+data class ModelConfig(
+  val modelId: String,
+  val displayName: String = "",
+  val temperature: Float? = null,
+  val maxTokens: Int? = null,
+  val topP: Float? = null,
+  val topK: Int? = null,
+  val reasoningEffort: String? = null,
+  val toolsOverride: Boolean? = null,
+  val visionOverride: Boolean? = null,
+  val maxContextMessages: Int? = null,
+  val systemPromptOverride: String? = null
 ) {
-  fun effectiveModel(): String = customModel.ifBlank { selectedModel }
-  fun effectiveEndpoint(): String = endpointOverride.ifBlank { "/chat/completions" }
+  fun toJson() = JSONObject().apply {
+    put("modelId", modelId)
+    if (displayName.isNotBlank()) put("displayName", displayName)
+    temperature?.let { put("temperature", it.toDouble()) }
+    maxTokens?.let { put("maxTokens", it) }
+    topP?.let { put("topP", it.toDouble()) }
+    topK?.let { put("topK", it) }
+    reasoningEffort?.let { put("reasoningEffort", it) }
+    toolsOverride?.let { put("toolsOverride", it) }
+    visionOverride?.let { put("visionOverride", it) }
+    maxContextMessages?.let { put("maxContextMessages", it) }
+    systemPromptOverride?.let { put("systemPromptOverride", it) }
+  }
+  companion object {
+    fun fromJson(j: JSONObject) = ModelConfig(
+      modelId = j.getString("modelId"),
+      displayName = j.optString("displayName", ""),
+      temperature = if (j.has("temperature")) j.getDouble("temperature").toFloat() else null,
+      maxTokens = if (j.has("maxTokens")) j.getInt("maxTokens") else null,
+      topP = if (j.has("topP")) j.getDouble("topP").toFloat() else null,
+      topK = if (j.has("topK")) j.getInt("topK") else null,
+      reasoningEffort = if (j.has("reasoningEffort")) j.getString("reasoningEffort") else null,
+      toolsOverride = if (j.has("toolsOverride")) j.optBoolean("toolsOverride") else null,
+      visionOverride = if (j.has("visionOverride")) j.optBoolean("visionOverride") else null,
+      maxContextMessages = if (j.has("maxContextMessages")) j.getInt("maxContextMessages") else null,
+      systemPromptOverride = if (j.has("systemPromptOverride")) j.getString("systemPromptOverride") else null,
+    )
+  }
 }
 
-/** Preconfigured templates — user can edit everything */
+data class ModelDef(
+  val id: String,
+  val displayName: String = id,
+  val contextWindow: Int = 0,
+  val supportsTools: Boolean = true,
+  val supportsVision: Boolean = false,
+  val supportsAudio: Boolean = false,
+  val supportsVideo: Boolean = false
+)
+
+data class ProviderProfile(
+  val id: String = java.util.UUID.randomUUID().toString(),
+  val builtinId: String = "custom",
+  val label: String = "",
+  val apiKey: String = "",
+  val apiBase: String = "",
+  val selectedModelId: String = "",
+  val isActive: Boolean = false,
+  // Ability overrides (null = auto-detect)
+  val toolsOverride: Boolean? = null,
+  val visionOverride: Boolean? = null,
+  val audioOverride: Boolean? = null,
+  val videoOverride: Boolean? = null,
+  // Parameters (null = use defaults)
+  val temperature: Float? = null,
+  val maxTokens: Int? = null,
+  val topP: Float? = null,
+  val topK: Int? = null,
+  val reasoningEffort: String? = null,
+  val maxContextMessages: Int? = null,
+  val systemPromptOverride: String? = null,
+  val modelConfigs: Map<String, ModelConfig> = emptyMap()
+) {
+  fun effectiveModel(): String = selectedModelId
+  fun effectiveApiBase(): String = apiBase.ifBlank { ProviderTemplates.byId[builtinId]?.apiBase ?: "" }
+  fun effectiveTemperature(): Float? = modelConfigs[selectedModelId]?.temperature ?: temperature
+  fun effectiveMaxTokens(): Int? = modelConfigs[selectedModelId]?.maxTokens ?: maxTokens
+  fun effectiveTopP(): Float? = modelConfigs[selectedModelId]?.topP ?: topP
+  fun effectiveTopK(): Int? = modelConfigs[selectedModelId]?.topK ?: topK
+  fun effectiveMaxContext(): Int? = modelConfigs[selectedModelId]?.maxContextMessages ?: maxContextMessages
+  fun effectiveSystemPrompt(): String? = modelConfigs[selectedModelId]?.systemPromptOverride ?: systemPromptOverride
+
+  fun toJson() = JSONObject().apply {
+    put("id", id); put("builtinId", builtinId); put("label", label)
+    put("apiKey", apiKey); put("apiBase", apiBase); put("selectedModelId", selectedModelId)
+    put("isActive", isActive)
+    toolsOverride?.let { put("toolsOverride", it) }
+    visionOverride?.let { put("visionOverride", it) }
+    audioOverride?.let { put("audioOverride", it) }
+    videoOverride?.let { put("videoOverride", it) }
+    temperature?.let { put("temperature", it.toDouble()) }
+    maxTokens?.let { put("maxTokens", it) }
+    topP?.let { put("topP", it.toDouble()) }
+    topK?.let { put("topK", it) }
+    reasoningEffort?.let { put("reasoningEffort", it) }
+    maxContextMessages?.let { put("maxContextMessages", it) }
+    systemPromptOverride?.let { put("systemPromptOverride", it) }
+    if (modelConfigs.isNotEmpty()) {
+      val mc = JSONObject()
+      modelConfigs.forEach { (k, v) -> mc.put(k, v.toJson()) }
+      put("modelConfigs", mc)
+    }
+  }
+
+  companion object {
+    fun fromJson(j: JSONObject): ProviderProfile {
+      val mc = j.optJSONObject("modelConfigs")?.let { obj ->
+        val map = mutableMapOf<String, ModelConfig>()
+        obj.keys().forEach { k -> map[k] = ModelConfig.fromJson(obj.getJSONObject(k)) }
+        map
+      } ?: emptyMap()
+      return ProviderProfile(
+        id = j.optString("id"), builtinId = j.optString("builtinId", "custom"),
+        label = j.optString("label"), apiKey = j.optString("apiKey"),
+        apiBase = j.optString("apiBase"), selectedModelId = j.optString("selectedModelId"),
+        isActive = j.optBoolean("isActive"),
+        toolsOverride = if (j.has("toolsOverride")) j.optBoolean("toolsOverride") else null,
+        visionOverride = if (j.has("visionOverride")) j.optBoolean("visionOverride") else null,
+        audioOverride = if (j.has("audioOverride")) j.optBoolean("audioOverride") else null,
+        videoOverride = if (j.has("videoOverride")) j.optBoolean("videoOverride") else null,
+        temperature = if (j.has("temperature")) j.getDouble("temperature").toFloat() else null,
+        maxTokens = if (j.has("maxTokens")) j.getInt("maxTokens") else null,
+        topP = if (j.has("topP")) j.getDouble("topP").toFloat() else null,
+        topK = if (j.has("topK")) j.getInt("topK") else null,
+        reasoningEffort = if (j.has("reasoningEffort")) j.getString("reasoningEffort") else null,
+        maxContextMessages = if (j.has("maxContextMessages")) j.getInt("maxContextMessages") else null,
+        systemPromptOverride = if (j.has("systemPromptOverride")) j.getString("systemPromptOverride") else null,
+        modelConfigs = mc
+      )
+    }
+  }
+}
+
+data class BuiltinProvider(
+  val id: String,
+  val displayName: String,
+  val icon: String,
+  val apiBase: String? = null,
+  val apiKeyHint: String = "",
+  val requiresApiKey: Boolean = true,
+  val supportsTools: Boolean = true,
+  val supportsVision: Boolean = false,
+  val defaultModels: List<ModelDef> = emptyList()
+)
+
 object ProviderTemplates {
-  val templates = listOf(
-    ProviderProfile(id = "t_pollinations", name = "Pollinations", baseUrl = "https://text.pollinations.ai/openai",
-      apiKey = "", selectedModel = "openai-fast", supportsTools = true, autoDetectAbilities = false,
-      systemPrompt = "You are AIOPE, an AI coding assistant on Android. Use tools when asked to run commands or manage files."),
-    ProviderProfile(id = "t_openai", name = "OpenAI", baseUrl = "https://api.openai.com/v1",
-      selectedModel = "gpt-4o-mini", supportsVision = true, supportsTools = true),
-    ProviderProfile(id = "t_anthropic", name = "Anthropic", baseUrl = "https://api.anthropic.com/v1",
-      selectedModel = "claude-sonnet-4-20250514", supportsVision = true, supportsTools = true),
-    ProviderProfile(id = "t_google", name = "Google AI Studio", baseUrl = "https://generativelanguage.googleapis.com/v1beta/openai",
-      selectedModel = "gemini-2.0-flash", supportsVision = true, supportsTools = true),
-    ProviderProfile(id = "t_openrouter", name = "OpenRouter", baseUrl = "https://openrouter.ai/api/v1",
-      selectedModel = "deepseek/deepseek-chat-v3-0324:free", supportsVision = true, supportsTools = true),
-    ProviderProfile(id = "t_github", name = "GitHub Models", baseUrl = "https://models.github.ai/inference",
-      selectedModel = "gpt-4o", supportsVision = true, supportsTools = true),
-    ProviderProfile(id = "t_deepseek", name = "DeepSeek", baseUrl = "https://api.deepseek.com/v1",
-      selectedModel = "deepseek-chat", supportsTools = true),
-    ProviderProfile(id = "t_groq", name = "Groq", baseUrl = "https://api.groq.com/openai/v1",
-      selectedModel = "llama-3.3-70b-versatile", supportsTools = true),
-    ProviderProfile(id = "t_ollama", name = "Ollama (local)", baseUrl = "http://localhost:11434/v1",
-      selectedModel = "llama3.2", supportsTools = true, autoDetectAbilities = false),
+  val ALL = listOf(
+    BuiltinProvider("pollinations", "Pollinations", "🌸", "https://text.pollinations.ai/openai", "(no key)", false, defaultModels = listOf(
+      ModelDef("openai-fast", "GPT-OSS Fast", 32_768), ModelDef("openai", "GPT-OSS", 32_768), ModelDef("openai-large", "GPT-OSS Large", 32_768))),
+    BuiltinProvider("openai", "OpenAI", "🤖", apiKeyHint = "sk-…", supportsVision = true, defaultModels = listOf(
+      ModelDef("gpt-4o", "GPT-4o", 128_000, true, true), ModelDef("gpt-4o-mini", "GPT-4o mini", 128_000, true, true), ModelDef("o4-mini", "o4-mini", 200_000, true, true))),
+    BuiltinProvider("anthropic", "Anthropic", "🧠", apiKeyHint = "sk-ant-…", supportsVision = true, defaultModels = listOf(
+      ModelDef("claude-sonnet-4-20250514", "Claude Sonnet 4", 200_000, true, true), ModelDef("claude-3-5-haiku-20241022", "Claude 3.5 Haiku", 200_000, true, true))),
+    BuiltinProvider("google_ai_studio", "Google AI Studio", "✨", "https://generativelanguage.googleapis.com/v1beta/openai", "AIza…", supportsVision = true, defaultModels = listOf(
+      ModelDef("gemini-2.0-flash", "Gemini 2.0 Flash", 1_000_000, true, true))),
+    BuiltinProvider("deepseek", "DeepSeek", "🔍", apiKeyHint = "sk-…", defaultModels = listOf(
+      ModelDef("deepseek-chat", "DeepSeek V3", 64_000), ModelDef("deepseek-reasoner", "DeepSeek R1", 64_000, false))),
+    BuiltinProvider("openrouter", "OpenRouter", "🔀", "https://openrouter.ai/api/v1", "sk-or-…", supportsVision = true, defaultModels = listOf(
+      ModelDef("google/gemini-2.0-flash-exp:free", "Gemini 2.0 Flash (free)", 1_000_000), ModelDef("deepseek/deepseek-chat-v3-0324:free", "DeepSeek V3 (free)", 64_000))),
+    BuiltinProvider("github_models", "GitHub Models", "🐙", "https://models.github.ai/inference", "github_pat_…", supportsVision = true, defaultModels = listOf(
+      ModelDef("gpt-4o", "GPT-4o", 131_072, true, true), ModelDef("DeepSeek-R1", "DeepSeek R1", 128_000, false))),
+    BuiltinProvider("groq", "Groq", "⚡", "https://api.groq.com/openai/v1", "gsk_…", defaultModels = listOf(
+      ModelDef("llama-3.3-70b-versatile", "Llama 3.3 70B", 128_000))),
+    BuiltinProvider("ollama", "Ollama (local)", "🦙", "http://localhost:11434/v1", "(no key)", false, defaultModels = listOf(
+      ModelDef("llama3.2", "Llama 3.2", 128_000), ModelDef("qwen2.5", "Qwen 2.5", 128_000))),
+    BuiltinProvider("custom", "Custom", "⚙️", apiKeyHint = "API key", requiresApiKey = false),
   )
+  val byId = ALL.associateBy { it.id }
 }

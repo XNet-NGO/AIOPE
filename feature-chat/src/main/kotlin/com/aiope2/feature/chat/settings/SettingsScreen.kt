@@ -253,6 +253,24 @@ private fun ProfileEditor(profile: ProviderProfile, store: ProviderStore,
         label = { Text("System Prompt") }, modifier = Modifier.fillMaxWidth(), minLines = 3, maxLines = 6)
 
       Spacer(Modifier.height(16.dp))
+      // Test connection
+      var testResult by remember { mutableStateOf<String?>(null) }
+      var testing by remember { mutableStateOf(false) }
+      Button(onClick = {
+        testing = true; testResult = null
+        scope.launch {
+          testResult = testConnection(p)
+          testing = false
+        }
+      }, enabled = !testing, modifier = Modifier.fillMaxWidth()) {
+        Text(if (testing) "Testing…" else "Test Connection")
+      }
+      testResult?.let {
+        Text(it, style = MaterialTheme.typography.bodySmall,
+          color = if (it.startsWith("✓")) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+          modifier = Modifier.padding(top = 4.dp))
+      }
+      Spacer(Modifier.height(8.dp))
       Button(onClick = { onSave(p) }, modifier = Modifier.fillMaxWidth()) { Text("Save & Activate") }
       Spacer(Modifier.height(32.dp))
     }
@@ -320,6 +338,88 @@ private fun ProfileEditor(profile: ProviderProfile, store: ProviderStore,
     valueRange = 0f..(steps.size - 1).toFloat())
 }
 
+
+private suspend fun testConnection(p: ProviderProfile): String = withContext(Dispatchers.IO) {
+  try {
+    var baseUrl = p.effectiveApiBase().trimEnd('/')
+    val endpointOverride = p.endpointOverride.trim().removePrefix("/")
+    val chatPath = if (endpointOverride.isNotBlank()) endpointOverride
+      else if (baseUrl.endsWith("/openai")) "chat/completions"
+      else if (baseUrl.endsWith("/v1")) { baseUrl = baseUrl.removeSuffix("/v1"); "v1/chat/completions" }
+      else "v1/chat/completions"
+    val url = "$baseUrl/$chatPath"
+    val model = p.effectiveModel()
+    if (model.isBlank()) return@withContext "✗ No model selected"
+
+    // Build test message based on active abilities
+    val messages = org.json.JSONArray()
+    messages.put(org.json.JSONObject().put("role", "user").put("content", "Reply with exactly: OK"))
+
+    val body = org.json.JSONObject().apply {
+      put("model", model)
+      put("messages", messages)
+      put("max_tokens", 10)
+      p.effectiveTemperature()?.let { put("temperature", it.toDouble()) }
+    }
+
+    val conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+    conn.requestMethod = "POST"
+    conn.setRequestProperty("Content-Type", "application/json")
+    if (p.apiKey.isNotBlank()) conn.setRequestProperty("Authorization", "Bearer ${p.apiKey}")
+    conn.connectTimeout = 15_000; conn.readTimeout = 30_000
+    conn.doOutput = true
+    conn.outputStream.write(body.toString().toByteArray())
+
+    val code = conn.responseCode
+    if (code !in 200..299) {
+      val err = try { conn.errorStream?.bufferedReader()?.readText()?.take(200) } catch (_: Exception) { null }
+      return@withContext "✗ HTTP $code: ${err ?: "Unknown error"}"
+    }
+
+    val resp = conn.inputStream.bufferedReader().readText()
+    val json = org.json.JSONObject(resp)
+    val content = json.optJSONArray("choices")?.optJSONObject(0)
+      ?.optJSONObject("message")?.optString("content", "") ?: ""
+    val usage = json.optJSONObject("usage")
+    val tokens = usage?.optInt("total_tokens", 0) ?: 0
+
+    val results = mutableListOf("✓ Chat: OK ($tokens tok)")
+
+    // Test tools if enabled
+    if (p.toolsOverride != false) {
+      try {
+        val toolMsg = org.json.JSONArray().put(org.json.JSONObject().put("role", "user").put("content", "What is 2+2? Use the calculator tool."))
+        val toolDef = org.json.JSONArray().put(org.json.JSONObject().apply {
+          put("type", "function")
+          put("function", org.json.JSONObject().apply {
+            put("name", "calculator")
+            put("description", "Calculate math")
+            put("parameters", org.json.JSONObject().put("type", "object")
+              .put("properties", org.json.JSONObject().put("expr", org.json.JSONObject().put("type", "string")))
+              .put("required", org.json.JSONArray().put("expr")))
+          })
+        })
+        val toolBody = org.json.JSONObject().apply {
+          put("model", model); put("messages", toolMsg); put("tools", toolDef); put("max_tokens", 50)
+        }
+        val tc = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+        tc.requestMethod = "POST"
+        tc.setRequestProperty("Content-Type", "application/json")
+        if (p.apiKey.isNotBlank()) tc.setRequestProperty("Authorization", "Bearer ${p.apiKey}")
+        tc.connectTimeout = 15_000; tc.readTimeout = 30_000; tc.doOutput = true
+        tc.outputStream.write(toolBody.toString().toByteArray())
+        if (tc.responseCode in 200..299) {
+          val tr = org.json.JSONObject(tc.inputStream.bufferedReader().readText())
+          val toolCalls = tr.optJSONArray("choices")?.optJSONObject(0)
+            ?.optJSONObject("message")?.optJSONArray("tool_calls")
+          results.add(if (toolCalls != null && toolCalls.length() > 0) "✓ Tools: supported" else "⚠ Tools: no tool_calls in response")
+        } else results.add("✗ Tools: HTTP ${tc.responseCode}")
+      } catch (e: Exception) { results.add("✗ Tools: ${e.message?.take(60)}") }
+    }
+
+    results.joinToString("\n")
+  } catch (e: Exception) { "✗ ${e.message?.take(100)}" }
+}
 private suspend fun fetchModels(baseUrl: String, apiKey: String): List<ModelDef> = withContext(Dispatchers.IO) {
   try {
     // Normalize: ensure we hit the /models endpoint correctly

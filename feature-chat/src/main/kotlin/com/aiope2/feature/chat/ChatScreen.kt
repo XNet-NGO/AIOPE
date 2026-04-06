@@ -87,11 +87,11 @@ private fun ChatContent(
       TextButton(onClick = onChats, contentPadding = PaddingValues(horizontal = 8.dp)) {
         Text("Chats", fontSize = 12.sp)
       }
-      TextButton(onClick = onModelPicker, modifier = Modifier.weight(1f),
-        contentPadding = PaddingValues(horizontal = 8.dp)) {
-        Text(modelLabel, fontSize = 12.sp, maxLines = 1,
-          modifier = Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+      Spacer(Modifier.weight(1f))
+      TextButton(onClick = onModelPicker, contentPadding = PaddingValues(horizontal = 8.dp)) {
+        Text(modelLabel, fontSize = 12.sp, maxLines = 1)
       }
+      Spacer(Modifier.weight(1f))
       IconButton(onClick = onToggleTerminal, modifier = Modifier.size(36.dp)) {
         Icon(Icons.Default.Terminal, "Terminal", modifier = Modifier.size(18.dp),
           tint = if (terminalVisible) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)

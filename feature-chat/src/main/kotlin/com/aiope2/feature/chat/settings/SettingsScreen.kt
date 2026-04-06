@@ -243,7 +243,7 @@ private fun ProfileEditor(profile: ProviderProfile, store: ProviderStore,
       LogSlider("Temperature", p.temperature, 0f, 2f) { p = p.copy(temperature = if (it <= 0f) null else it) }
       LogSlider("Top-P", p.topP, 0f, 1f) { p = p.copy(topP = if (it <= 0f) null else it) }
       StepSlider("Max Tokens", p.maxTokens, TOKEN_STEPS) { p = p.copy(maxTokens = if (it == 0) null else it) }
-      IntField("Top-K (0=off)", p.topK ?: 0) { p = p.copy(topK = if (it == 0) null else it) }
+      TopKSlider("Top-K", p.topK) { p = p.copy(topK = if (it == 0) null else it) }
 
       // ── Context ──
       Section("Context")
@@ -291,6 +291,12 @@ private fun ProfileEditor(profile: ProviderProfile, store: ProviderStore,
   val v = value ?: 0f
   Text("$label: ${if (v <= 0f) "off" else "%.2f".format(v)}", style = MaterialTheme.typography.bodySmall)
   Slider(value = v, onValueChange = onChange, valueRange = min..max)
+}
+
+@Composable private fun TopKSlider(label: String, value: Int?, onChange: (Int) -> Unit) {
+  val v = value ?: 0
+  Text("$label: ${if (v == 0) "off" else v.toString()}", style = MaterialTheme.typography.bodySmall)
+  Slider(value = v.toFloat(), onValueChange = { onChange(it.toInt()) }, valueRange = 0f..200f, steps = 199)
 }
 
 @Composable private fun StepSlider(label: String, value: Int?, steps: List<Int>, onChange: (Int) -> Unit) {

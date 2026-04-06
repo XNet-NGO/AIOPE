@@ -192,19 +192,48 @@ class ChatViewModel @Inject constructor(
 
   /** Edit & Resend: truncate messages after index, resend with new text */
   fun editAndResend(text: String, atIndex: Int) {
+    // Keep messages up to (not including) the edited message
     _messages.value = _messages.value.take(atIndex)
     send(text)
   }
 
-  /** Retry: remove last assistant message and resend the last user message */
+  /** Retry: remove last assistant message and re-run the last user message */
   fun retry(atIndex: Int) {
     val msgs = _messages.value.toMutableList()
     if (atIndex < msgs.size && msgs[atIndex].role == Role.ASSISTANT) {
       msgs.removeAt(atIndex)
       _messages.value = msgs
-      // Find last user message and resend
+      // Find last user message and re-run without adding it again
       val lastUser = msgs.lastOrNull { it.role == Role.USER }
-      if (lastUser != null) send(lastUser.content)
+      if (lastUser != null) resend(lastUser.content)
+    }
+  }
+
+  /** Send to LLM without adding a new user message (used by retry) */
+  private fun resend(text: String) {
+    viewModelScope.launch(Dispatchers.IO) {
+      _isStreaming.value = true
+      val assistantMsg = ChatMessage(role = Role.ASSISTANT, content = "")
+      _messages.value = _messages.value + assistantMsg
+      try {
+        val (executor, model) = createClient()
+        val agent = AIAgent(
+          promptExecutor = executor, systemPrompt = getSystemPrompt(),
+          llmModel = model, toolRegistry = ToolRegistry { tools(this@ChatViewModel.tools) }
+        )
+        val result = agent.run(text)
+        val updated = _messages.value.toMutableList()
+        updated[updated.lastIndex] = updated.last().copy(content = result)
+        _messages.value = updated
+        chatDao.insertMessage(MessageEntity(
+          id = updated.last().id, conversationId = conversationId,
+          role = Role.ASSISTANT.value, content = result
+        ))
+      } catch (e: Exception) {
+        val updated = _messages.value.toMutableList()
+        updated[updated.lastIndex] = updated.last().copy(content = "Error: ${e.message}")
+        _messages.value = updated
+      } finally { _isStreaming.value = false }
     }
   }
 }

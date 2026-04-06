@@ -61,6 +61,47 @@ class ChatViewModel @Inject constructor(
       ?: emptyList()
   }
 
+  private val _conversations = MutableStateFlow<List<ConversationEntity>>(emptyList())
+  val conversations = _conversations.asStateFlow()
+
+  init {
+    viewModelScope.launch {
+      chatDao.insertConversation(ConversationEntity(id = conversationId))
+      refreshConversations()
+    }
+  }
+
+  fun newConversation() {
+    conversationId = UUID.randomUUID().toString()
+    _messages.value = emptyList()
+    viewModelScope.launch {
+      chatDao.insertConversation(ConversationEntity(id = conversationId))
+      refreshConversations()
+    }
+  }
+
+  fun loadConversation(id: String) {
+    conversationId = id
+    viewModelScope.launch {
+      val msgs = chatDao.getMessages(id).map {
+        ChatMessage(id = it.id, role = Role.from(it.role), content = it.content, timestamp = it.timestamp)
+      }
+      _messages.value = msgs
+    }
+  }
+
+  fun deleteConversation(id: String) {
+    viewModelScope.launch {
+      chatDao.deleteConversation(id)
+      if (id == conversationId) newConversation()
+      refreshConversations()
+    }
+  }
+
+  private suspend fun refreshConversations() {
+    _conversations.value = chatDao.getConversations()
+  }
+
   // LLM client — reads from ProviderStore, recreated per send
   private fun createClient(): Pair<SingleLLMPromptExecutor, LLModel> {
     val p = providerStore.getActive()
@@ -95,12 +136,6 @@ class ChatViewModel @Inject constructor(
     val mc = p.activeModelConfig()
     return mc.systemPromptOverride
       ?: "You are AIOPE, an AI coding assistant on Android. Use tools when asked to run commands or manage files. Be concise."
-  }
-
-  init {
-    viewModelScope.launch {
-      chatDao.insertConversation(ConversationEntity(id = conversationId))
-    }
   }
 
   fun send(text: String) {

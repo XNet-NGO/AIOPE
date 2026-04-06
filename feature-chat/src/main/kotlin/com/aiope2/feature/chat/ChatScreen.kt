@@ -42,6 +42,8 @@ fun ChatScreen(viewModel: ChatViewModel = hiltViewModel(), onOpenSettings: () ->
         onGetModels = { viewModel.getModelList() }, onGetActiveModelId = { viewModel.providerStore.getActive().selectedModelId },
         onSwitchModel = { viewModel.switchModel(it) },
         onChats = { showConversations = true },
+        onEditMessage = { text, idx -> viewModel.editAndResend(text, idx) },
+        onRetry = { idx -> viewModel.retry(idx) },
         modifier = Modifier.weight(1f)
       )
       if (terminalVisible) {
@@ -58,6 +60,8 @@ fun ChatScreen(viewModel: ChatViewModel = hiltViewModel(), onOpenSettings: () ->
         onGetModels = { viewModel.getModelList() }, onGetActiveModelId = { viewModel.providerStore.getActive().selectedModelId },
         onSwitchModel = { viewModel.switchModel(it) },
         onChats = { showConversations = true },
+        onEditMessage = { text, idx -> viewModel.editAndResend(text, idx) },
+        onRetry = { idx -> viewModel.retry(idx) },
         modifier = Modifier.weight(1f)
       )
       if (terminalVisible) {
@@ -81,6 +85,8 @@ private fun ChatContent(
   onGetModels: () -> List<com.aiope2.core.network.ModelDef>, onGetActiveModelId: () -> String,
   onSwitchModel: (String) -> Unit,
   onChats: () -> Unit,
+  onEditMessage: (String, Int) -> Unit = { _, _ -> },
+  onRetry: (Int) -> Unit = {},
   modifier: Modifier = Modifier
 ) {
   var showModelPicker by remember { mutableStateOf(false) }
@@ -133,7 +139,10 @@ private fun ChatContent(
     if (messages.isEmpty()) {
       EmptyState(onSend = onSend, modifier = Modifier.weight(1f))
     } else {
-      MessageList(messages = messages, modifier = Modifier.weight(1f))
+      MessageList(messages = messages,
+        onEdit = { idx -> onEditMessage(messages[idx].content, idx) },
+        onRetry = { idx -> onRetry(idx) },
+        modifier = Modifier.weight(1f))
     }
 
     HorizontalDivider()
@@ -168,15 +177,20 @@ private fun EmptyState(onSend: (String) -> Unit, modifier: Modifier = Modifier) 
 // ── Message list ──
 
 @Composable
-private fun MessageList(messages: List<ChatMessage>, modifier: Modifier = Modifier) {
+private fun MessageList(messages: List<ChatMessage>, onEdit: ((Int) -> Unit)? = null, onRetry: ((Int) -> Unit)? = null, modifier: Modifier = Modifier) {
   val listState = rememberLazyListState()
   val scope = rememberCoroutineScope()
   LaunchedEffect(messages.size) {
     if (messages.isNotEmpty()) scope.launch { listState.animateScrollToItem(messages.size - 1) }
   }
   LazyColumn(state = listState, modifier = modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
-    items(messages, key = { it.id }) { msg ->
-      MessageBubble(message = msg)
+    items(messages.size, key = { messages[it].id }) { idx ->
+      val msg = messages[idx]
+      MessageBubble(
+        message = msg,
+        onEdit = if (msg.role == Role.USER) {{ onEdit?.invoke(idx) }} else null,
+        onRetry = if (msg.role == Role.ASSISTANT) {{ onRetry?.invoke(idx) }} else null
+      )
       Spacer(Modifier.height(8.dp))
     }
   }
@@ -187,6 +201,15 @@ private fun MessageList(messages: List<ChatMessage>, modifier: Modifier = Modifi
 @Composable
 private fun ChatInput(onSend: (String) -> Unit, isStreaming: Boolean) {
   var text by remember { mutableStateOf("") }
+  val context = androidx.compose.ui.platform.LocalContext.current
+  val launcher = androidx.activity.compose.rememberLauncherForActivityResult(
+    androidx.activity.result.contract.ActivityResultContracts.GetContent()
+  ) { uri ->
+    uri?.let {
+      // For now, append file path to message
+      text = text + (if (text.isNotBlank()) "\n" else "") + "[Attached: $uri]"
+    }
+  }
 
   Column(Modifier.fillMaxWidth().padding(8.dp)) {
     OutlinedTextField(
@@ -197,13 +220,28 @@ private fun ChatInput(onSend: (String) -> Unit, isStreaming: Boolean) {
     )
     Spacer(Modifier.height(4.dp))
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-      // Attach
-      IconButton(onClick = { /* TODO: file picker */ }) {
+      // Attach — opens system file picker (all types)
+      IconButton(onClick = { launcher.launch("*/*") }) {
         Icon(Icons.Default.AttachFile, "Attach")
       }
-      // Mic
-      IconButton(onClick = { /* TODO: audio recording */ }) {
-        Icon(Icons.Default.Mic, "Record")
+      // Mic — launches Android speech recognizer
+      val speechLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
+      ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+          val spoken = result.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
+          if (!spoken.isNullOrBlank()) {
+            text = text + (if (text.isNotBlank()) " " else "") + spoken
+          }
+        }
+      }
+      IconButton(onClick = {
+        val intent = android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+          putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+        }
+        try { speechLauncher.launch(intent) } catch (_: Exception) {}
+      }) {
+        Icon(Icons.Default.Mic, "Voice")
       }
       // Clear
       IconButton(onClick = { text = "" }) {

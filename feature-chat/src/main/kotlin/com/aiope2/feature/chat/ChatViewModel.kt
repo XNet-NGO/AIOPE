@@ -189,4 +189,22 @@ class ChatViewModel @Inject constructor(
   fun toggleTerminal() {
     _terminalVisible.value = !_terminalVisible.value
   }
+
+  /** Edit & Resend: truncate messages after index, resend with new text */
+  fun editAndResend(text: String, atIndex: Int) {
+    _messages.value = _messages.value.take(atIndex)
+    send(text)
+  }
+
+  /** Retry: remove last assistant message and resend the last user message */
+  fun retry(atIndex: Int) {
+    val msgs = _messages.value.toMutableList()
+    if (atIndex < msgs.size && msgs[atIndex].role == Role.ASSISTANT) {
+      msgs.removeAt(atIndex)
+      _messages.value = msgs
+      // Find last user message and resend
+      val lastUser = msgs.lastOrNull { it.role == Role.USER }
+      if (lastUser != null) send(lastUser.content)
+    }
+  }
 }

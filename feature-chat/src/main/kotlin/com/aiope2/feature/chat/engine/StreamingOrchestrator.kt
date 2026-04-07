@@ -229,13 +229,13 @@ class StreamingOrchestrator(
     val url = "${baseUrl.trimEnd('/')}/chat/completions"
     val conn = URL(url).openConnection() as HttpURLConnection
     conn.requestMethod = "POST"
-    conn.setRequestProperty("Content-Type", "application/json")
+    conn.setRequestProperty("Content-Type", "application/json; charset=utf-8")
     conn.setRequestProperty("Accept", "text/event-stream")
     if (apiKey.isNotBlank()) conn.setRequestProperty("Authorization", "Bearer $apiKey")
     conn.connectTimeout = 30_000
     conn.readTimeout = 120_000
     conn.doOutput = true
-    conn.outputStream.write(body.toByteArray())
+    conn.outputStream.write(body.toByteArray(Charsets.UTF_8))
     return conn
   }
 }

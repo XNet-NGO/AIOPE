@@ -119,11 +119,12 @@ fun MessageBubble(
               update = { tv ->
               // Strip LaTeX and render markdown
               val cleaned = message.content
-                .replace(Regex("\\$\\\\checkmark\\$"), "✓")
-                .replace(Regex("\\$\\\\triangle\\$"), "△")
+                .replace(Regex("\\$\\\\checkmark\\$"), "\u2713")
+                .replace(Regex("\\$\\\\triangle\\$"), "\u25B3")
                 .replace(Regex("\\$\\\\text\\{([^}]*)\\}\\$"), "$1")
-                .replace(Regex("\\$\\\\approx\\s*([^$]*)\\$"), "≈$1")
+                .replace(Regex("\\$\\\\approx\\s*([^$]*)\\$"), "\u2248$1")
                 .replace(Regex("\\$([^$]+)\\$"), "$1")
+                .replace("\u00B0", " deg")  // degree sign → text (font-safe)
               markwon.setMarkdown(tv, cleaned)
             },
               modifier = Modifier.fillMaxWidth()

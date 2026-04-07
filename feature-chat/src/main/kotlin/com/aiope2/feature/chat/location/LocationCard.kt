@@ -9,7 +9,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import org.ramani.compose.CameraPosition
 import org.ramani.compose.MapLibre
-import org.ramani.compose.MapProperties
 import org.ramani.compose.Symbol
 
 @Composable
@@ -26,10 +25,16 @@ fun LocationCard(
     shape = RoundedCornerShape(8.dp),
     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
   ) {
-    // Map only — larger, no text overlay. Agent states the details.
     Box(modifier = Modifier.fillMaxWidth().height(260.dp).clip(RoundedCornerShape(8.dp))) {
-      val pos = remember(latitude, longitude) {
+      val pos = remember { mutableStateOf(
         CameraPosition(
+          target = org.maplibre.android.geometry.LatLng(latitude, longitude),
+          zoom = 15.5
+        )
+      ) }
+      // Update camera when coordinates change (animate)
+      LaunchedEffect(latitude, longitude) {
+        pos.value = CameraPosition(
           target = org.maplibre.android.geometry.LatLng(latitude, longitude),
           zoom = 15.5
         )
@@ -40,7 +45,7 @@ fun LocationCard(
       MapLibre(
         modifier = Modifier.fillMaxSize(),
         styleBuilder = style,
-        cameraPosition = pos
+        cameraPosition = pos.value
       ) {
         Symbol(
           center = org.maplibre.android.geometry.LatLng(latitude, longitude),

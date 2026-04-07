@@ -26,11 +26,15 @@ class StreamingOrchestrator(
   data class ToolDef(val name: String, val description: String, val parameters: JSONObject)
 
   fun stream(messages: List<Pair<String, String>>): Flow<ChatStreamChunk> = flow {
-    var currentMessages = messages.toMutableList()
+    // Convert initial messages to JSONObjects for proper tool_call support
+    val rawMessages = mutableListOf<JSONObject>()
+    for ((role, content) in messages) {
+      rawMessages.add(JSONObject().put("role", role).put("content", content))
+    }
     var maxRounds = 6
 
     while (maxRounds-- > 0) {
-      val body = buildRequestBody(currentMessages)
+      val body = buildRequestBody(rawMessages)
       val conn = openConnection(body)
 
       if (conn.responseCode !in 200..299) {
@@ -99,10 +103,8 @@ class StreamingOrchestrator(
       // Execute tool calls if any
       if (hasToolCalls && toolAcc.isNotEmpty()) {
         val callInfos = mutableListOf<ToolCallInfo>()
-        val toolCallMessages = mutableListOf<Pair<String, String>>() // for appending to history
 
-        // Parse accumulated tool calls
-        toolAcc.forEach { (_, acc) ->
+        toolAcc.forEach { (idx, acc) ->
           val id = acc["id"] ?: "call_${System.nanoTime()}"
           val name = acc["name"] ?: ""
           val argsStr = acc["args"] ?: "{}"
@@ -113,28 +115,45 @@ class StreamingOrchestrator(
           callInfos.add(ToolCallInfo(id = id, name = name, arguments = args))
         }
 
-        // Emit tool calls
         emit(ChatStreamChunk(toolCalls = callInfos))
 
-        // Execute all tools (parallel-ready, sequential for now)
         val results = mutableListOf<ToolResultInfo>()
         for (call in callInfos) {
           val result = try { onToolCall(call.name, call.arguments) } catch (e: Exception) { "Error: ${e.message}" }
           results.add(ToolResultInfo(id = call.id, name = call.name, arguments = call.arguments, result = result))
         }
 
-        // Emit tool results
         emit(ChatStreamChunk(toolResults = results))
 
-        // Build follow-up messages
-        // Add assistant message with tool_calls
-        currentMessages.add("assistant" to buildToolCallsContent(callInfos))
-        // Add tool results
+        // Rebuild full message list with proper tool_call format for follow-up
+        // Add assistant message with tool_calls array
+        val assistantToolMsg = JSONObject().apply {
+          put("role", "assistant")
+          put("content", JSONObject.NULL)
+          val tcArr = JSONArray()
+          for (c in callInfos) {
+            tcArr.put(JSONObject().apply {
+              put("id", c.id)
+              put("type", "function")
+              put("function", JSONObject().apply {
+                put("name", c.name)
+                put("arguments", JSONObject(c.arguments).toString())
+              })
+            })
+          }
+          put("tool_calls", tcArr)
+        }
+        rawMessages.add(assistantToolMsg)
+
+        // Add tool result messages
         for (r in results) {
-          currentMessages.add("tool" to "[${r.name}] ${r.result}")
+          rawMessages.add(JSONObject().apply {
+            put("role", "tool")
+            put("tool_call_id", r.id)
+            put("content", r.result.take(4000))
+          })
         }
 
-        // Loop back for follow-up
         continue
       }
 
@@ -146,19 +165,14 @@ class StreamingOrchestrator(
     emit(ChatStreamChunk(isDone = true))
   }.flowOn(Dispatchers.IO)
 
-  private fun buildToolCallsContent(calls: List<ToolCallInfo>): String {
-    return calls.joinToString("\n") { "🔧 ${it.name}(${JSONObject(it.arguments)})" }
-  }
 
-  private fun buildRequestBody(messages: List<Pair<String, String>>): String {
+  private fun buildRequestBody(messages: List<JSONObject>): String {
     val body = JSONObject()
     body.put("model", model)
     body.put("stream", true)
 
     val msgsArr = JSONArray()
-    for ((role, content) in messages) {
-      msgsArr.put(JSONObject().put("role", role).put("content", content))
-    }
+    for (msg in messages) msgsArr.put(msg)
     body.put("messages", msgsArr)
 
     if (tools.isNotEmpty()) {

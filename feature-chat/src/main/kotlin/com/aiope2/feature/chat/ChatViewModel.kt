@@ -219,30 +219,37 @@ class ChatViewModel @Inject constructor(
             it[it.lastIndex] = it.last().copy(content = result)
           }
         } else {
-          // Direct streaming via executor.executeStreaming()
+          // Direct SSE streaming via openai-kotlin (proven to work)
+          var baseUrl = p.effectiveApiBase().trimEnd('/')
+          if (baseUrl.endsWith("/v1")) baseUrl = baseUrl.removeSuffix("/v1")
+          if (baseUrl.endsWith("/openai")) baseUrl = baseUrl.removeSuffix("/openai")
+          val openai = com.aallam.openai.client.OpenAI(com.aallam.openai.client.OpenAIConfig(
+            token = p.apiKey.ifBlank { "unused" },
+            host = com.aallam.openai.client.OpenAIHost(baseUrl)
+          ))
           val sysPrompt = mc.systemPromptOverride
-          val prompt = ai.koog.prompt.dsl.prompt("chat") {
-            if (!sysPrompt.isNullOrBlank()) system(sysPrompt)
+          val apiMessages = buildList {
+            if (!sysPrompt.isNullOrBlank()) add(com.aallam.openai.api.chat.ChatMessage(role = com.aallam.openai.api.chat.ChatRole.System, content = sysPrompt))
             _messages.value.dropLast(1).forEach { msg ->
               when (msg.role) {
-                Role.USER -> user(msg.content)
-                Role.ASSISTANT -> assistant(msg.content)
+                Role.USER -> add(com.aallam.openai.api.chat.ChatMessage(role = com.aallam.openai.api.chat.ChatRole.User, content = msg.content))
+                Role.ASSISTANT -> add(com.aallam.openai.api.chat.ChatMessage(role = com.aallam.openai.api.chat.ChatRole.Assistant, content = msg.content))
                 else -> {}
               }
             }
           }
-          val stream = executor.executeStreaming(prompt, model, emptyList())
-          stream.collect { frame ->
-            when (frame) {
-              is StreamFrame.TextDelta -> {
-                sb.append(frame.text)
-                withContext(Dispatchers.Main) {
-                  _messages.value = _messages.value.toMutableList().also {
-                    it[it.lastIndex] = it.last().copy(content = sb.toString())
-                  }
+          val request = com.aallam.openai.api.chat.ChatCompletionRequest(
+            model = com.aallam.openai.api.model.ModelId(p.selectedModelId),
+            messages = apiMessages
+          )
+          openai.chatCompletions(request).collect { chunk ->
+            chunk.choices.firstOrNull()?.delta?.content?.let { delta ->
+              sb.append(delta)
+              withContext(Dispatchers.Main) {
+                _messages.value = _messages.value.toMutableList().also {
+                  it[it.lastIndex] = it.last().copy(content = sb.toString())
                 }
               }
-              else -> {}
             }
           }
         }

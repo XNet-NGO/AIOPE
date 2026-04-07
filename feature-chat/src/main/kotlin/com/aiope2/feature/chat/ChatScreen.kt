@@ -39,7 +39,7 @@ fun ChatScreen(viewModel: ChatViewModel = hiltViewModel(), onOpenSettings: () ->
       ChatContent(
         messages = messages, isStreaming = isStreaming, terminalVisible = terminalVisible,
         imeVisible = imeVisible, modelLabel = modelLabel,
-        onSend = viewModel::send, onToggleTerminal = viewModel::toggleTerminal,
+        onSend = viewModel::send, onStop = { viewModel.cancelStreaming() }, onToggleTerminal = viewModel::toggleTerminal,
         onOpenSettings = onOpenSettings,
         onGetModels = { viewModel.getModelList() }, onGetActiveModelId = { viewModel.providerStore.getActive().selectedModelId },
         onSwitchModel = { viewModel.switchModel(it) },
@@ -60,7 +60,7 @@ fun ChatScreen(viewModel: ChatViewModel = hiltViewModel(), onOpenSettings: () ->
       ChatContent(
         messages = messages, isStreaming = isStreaming, terminalVisible = terminalVisible,
         imeVisible = imeVisible, modelLabel = modelLabel,
-        onSend = viewModel::send, onToggleTerminal = viewModel::toggleTerminal,
+        onSend = viewModel::send, onStop = { viewModel.cancelStreaming() }, onToggleTerminal = viewModel::toggleTerminal,
         onOpenSettings = onOpenSettings,
         onGetModels = { viewModel.getModelList() }, onGetActiveModelId = { viewModel.providerStore.getActive().selectedModelId },
         onSwitchModel = { viewModel.switchModel(it) },
@@ -88,7 +88,7 @@ fun ChatScreen(viewModel: ChatViewModel = hiltViewModel(), onOpenSettings: () ->
 private fun ChatContent(
   messages: List<ChatMessage>, isStreaming: Boolean, terminalVisible: Boolean,
   imeVisible: Boolean, modelLabel: String,
-  onSend: (String) -> Unit, onToggleTerminal: () -> Unit,
+  onSend: (String) -> Unit, onStop: () -> Unit = {}, onToggleTerminal: () -> Unit,
   onOpenSettings: () -> Unit,
   onGetModels: () -> List<com.aiope2.core.network.ModelDef>, onGetActiveModelId: () -> String,
   onSwitchModel: (String) -> Unit,
@@ -162,7 +162,7 @@ private fun ChatContent(
     HorizontalDivider()
 
     // ── Input ──
-    ChatInput(onSend = onSend, isStreaming = isStreaming, editText = editText, onEditTextChange = onEditTextChange)
+    ChatInput(onSend = onSend, onStop = onStop, isStreaming = isStreaming, editText = editText, onEditTextChange = onEditTextChange)
   }
 }
 
@@ -215,7 +215,7 @@ private fun MessageList(messages: List<ChatMessage>, onEdit: ((Int) -> Unit)? = 
 // ── Input bar ──
 
 @Composable
-private fun ChatInput(onSend: (String) -> Unit, isStreaming: Boolean, editText: String = "", onEditTextChange: (String) -> Unit = {}) {
+private fun ChatInput(onSend: (String) -> Unit, onStop: () -> Unit = {}, isStreaming: Boolean, editText: String = "", onEditTextChange: (String) -> Unit = {}) {
   var text by remember { mutableStateOf("") }
 
   // When editText changes externally (from Edit & Resend), update local state
@@ -270,7 +270,8 @@ private fun ChatInput(onSend: (String) -> Unit, isStreaming: Boolean, editText: 
       // Send / Stop
       Button(
         onClick = {
-          if (text.isNotBlank()) { onSend(text.trim()); text = "" }
+          if (isStreaming) { onStop() }
+          else if (text.isNotBlank()) { onSend(text.trim()); text = "" }
         },
         enabled = text.isNotBlank() || isStreaming,
         colors = ButtonDefaults.buttonColors(

@@ -43,6 +43,14 @@ class ChatViewModel @Inject constructor(
   private val _isStreaming = MutableStateFlow(false)
   val isStreaming = _isStreaming.asStateFlow()
 
+  private var streamingJob: kotlinx.coroutines.Job? = null
+
+  fun cancelStreaming() {
+    streamingJob?.cancel()
+    streamingJob = null
+    _isStreaming.value = false
+  }
+
   private val _terminalVisible = MutableStateFlow(false)
   val terminalVisible = _terminalVisible.asStateFlow()
 
@@ -192,7 +200,7 @@ class ChatViewModel @Inject constructor(
     val userMsg = ChatMessage(role = Role.USER, content = text)
     _messages.value = _messages.value + userMsg
 
-    viewModelScope.launch(Dispatchers.IO) {
+    cancelStreaming(); streamingJob = viewModelScope.launch(Dispatchers.IO) {
       chatDao.insertMessage(MessageEntity(
         id = userMsg.id, conversationId = conversationId,
         role = userMsg.role.value, content = userMsg.content
@@ -338,6 +346,7 @@ class ChatViewModel @Inject constructor(
   }
 
   fun truncateAt(atIndex: Int) {
+    cancelStreaming()
     val cutTimestamp = if (atIndex < _messages.value.size) _messages.value[atIndex].timestamp else System.currentTimeMillis()
     _messages.value = _messages.value.take(atIndex)
     viewModelScope.launch { chatDao.deleteMessagesAfter(conversationId, cutTimestamp) }
@@ -363,7 +372,7 @@ class ChatViewModel @Inject constructor(
     val transcript = toCompact.joinToString("\n") { "[${it.role.value}] ${it.content.take(2000)}" }
     val remaining = msgs.drop(atIndex + 1)
 
-    viewModelScope.launch(Dispatchers.IO) {
+    cancelStreaming(); streamingJob = viewModelScope.launch(Dispatchers.IO) {
       _isStreaming.value = true
       try {
         val (executor, model) = createClient(com.aiope2.core.network.ModelTask.SUMMARY)

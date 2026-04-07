@@ -46,6 +46,7 @@ class StreamingOrchestrator(
       val reader = BufferedReader(InputStreamReader(conn.inputStream, Charsets.UTF_8))
       val toolAcc = mutableMapOf<Int, MutableMap<String, String>>() // index -> {id, name, args}
       var hasToolCalls = false
+      var inThinkTag = false
       var buffer = ""
 
       try {
@@ -65,10 +66,23 @@ class StreamingOrchestrator(
             val finishReason = choice.optString("finish_reason", "")
 
             // Text content
-            val content = delta.optString("content", "")
-            // Reasoning (DeepSeek, OpenAI o-series, Qwen)
-            val reasoning = delta.optString("reasoning_content", "").ifBlank {
+            var content = delta.optString("content", "")
+            // Reasoning: separate field (DeepSeek, OpenAI o-series) or <think> tags in content (Qwen, some providers)
+            var reasoning = delta.optString("reasoning_content", "").ifBlank {
               delta.optString("reasoning", "")
+            }
+
+            // Handle <think> tags in content stream
+            if (content.contains("<think>")) { inThinkTag = true; content = content.substringAfter("<think>") }
+            if (inThinkTag) {
+              if (content.contains("</think>")) {
+                reasoning = content.substringBefore("</think>")
+                content = content.substringAfter("</think>")
+                inThinkTag = false
+              } else {
+                reasoning = content
+                content = ""
+              }
             }
 
             if (content.isNotEmpty() || reasoning.isNotEmpty()) {

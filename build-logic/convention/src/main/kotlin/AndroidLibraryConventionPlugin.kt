@@ -9,7 +9,7 @@ class AndroidLibraryConventionPlugin : Plugin<Project> {
     with(target) {
       pluginManager.apply("com.android.library")
       extensions.configure<LibraryExtension> {
-        compileSdk = 34
+        compileSdk = 35
         defaultConfig { minSdk = 26 }
       }
       configureKotlinAndroid()

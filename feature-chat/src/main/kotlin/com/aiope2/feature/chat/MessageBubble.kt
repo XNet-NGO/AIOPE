@@ -95,6 +95,15 @@ fun MessageBubble(
             ToolCallsBlock(message.toolCalls, message.toolResults)
           }
 
+          // Location map card
+          message.locationData?.let { loc ->
+            com.aiope2.feature.chat.location.LocationCard(
+              latitude = loc.latitude, longitude = loc.longitude,
+              altitude = loc.altitude, speed = loc.speed,
+              bearing = loc.bearing, accuracy = loc.accuracy
+            )
+          }
+
           // Main content (markdown)
           if (message.content.isNotBlank()) {
             val textColor = MaterialTheme.colorScheme.onSurface.toArgb()

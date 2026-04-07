@@ -279,6 +279,7 @@ class ChatViewModel @Inject constructor(
         var isReasoning = false
         val toolCallsList = mutableListOf<String>()
         val toolResultsList = mutableListOf<String>()
+        lastLocationData = null
 
         val toolDefs = if (useTools) buildToolDefs() else emptyList()
 
@@ -369,7 +370,7 @@ class ChatViewModel @Inject constructor(
                 reasoning = allReasoning,
                 isReasoningDone = !isReasoning,
                 toolCalls = toolCallsList.toList(),
-                toolResults = toolResultsList.toList()
+                toolResults = toolResultsList.toList(), locationData = lastLocationData
               )
             }
           }
@@ -484,6 +485,7 @@ class ChatViewModel @Inject constructor(
         var isReasoning = false
         val toolCallsList = mutableListOf<String>()
         val toolResultsList = mutableListOf<String>()
+        lastLocationData = null
 
         val chatMessages = mutableListOf<Pair<String, String>>()
         mc.systemPromptOverride?.let { if (it.isNotBlank()) chatMessages.add("system" to it) }
@@ -514,7 +516,7 @@ class ChatViewModel @Inject constructor(
           val allReasoning = if (isReasoning && currentReasoning.isNotEmpty()) reasoningBlocks + currentReasoning.toString() else reasoningBlocks.toList()
           withContext(Dispatchers.Main) {
             _messages.value = _messages.value.toMutableList().also {
-              it[it.lastIndex] = it.last().copy(content = sb.toString(), reasoning = allReasoning, isReasoningDone = !isReasoning, toolCalls = toolCallsList.toList(), toolResults = toolResultsList.toList())
+              it[it.lastIndex] = it.last().copy(content = sb.toString(), reasoning = allReasoning, isReasoningDone = !isReasoning, toolCalls = toolCallsList.toList(), toolResults = toolResultsList.toList(), locationData = lastLocationData)
             }
           }
         }
@@ -538,6 +540,7 @@ class ChatViewModel @Inject constructor(
   )
 
   private val locationProvider by lazy { com.aiope2.feature.chat.location.LocationProvider(getApplication()) }
+  private var lastLocationData: LocationData? = null
 
   private fun executeToolCall(name: String, args: Map<String, Any?>): String = when (name) {
     "run_sh" -> com.aiope2.core.terminal.shell.ShellExecutor.exec(args["command"]?.toString() ?: "").let { if (it.length > 4000) it.take(4000) + "\n...(truncated)" else it }
@@ -546,7 +549,17 @@ class ChatViewModel @Inject constructor(
     "list_directory" -> try { java.io.File(args["path"].toString()).listFiles()?.joinToString("\n") { "${if (it.isDirectory) "d" else "-"} ${it.name}" } ?: "Empty" } catch (e: Exception) { "Error: ${e.message}" }
     "get_location" -> kotlinx.coroutines.runBlocking {
       val loc = locationProvider.getFreshLocation() ?: locationProvider.getLastLocation()
-      if (loc != null) locationProvider.formatLocation(loc) else "Location unavailable — check permissions or GPS"
+      if (loc != null) {
+        // Store location data for map rendering
+        lastLocationData = LocationData(
+          latitude = loc.latitude, longitude = loc.longitude,
+          altitude = if (loc.hasAltitude()) loc.altitude else null,
+          speed = if (loc.hasSpeed()) loc.speed.toDouble() else null,
+          bearing = if (loc.hasBearing()) loc.bearing.toDouble() else null,
+          accuracy = loc.accuracy.toDouble()
+        )
+        locationProvider.formatLocation(loc)
+      } else "Location unavailable — check permissions or GPS"
     }
     else -> "Unknown tool: $name"
   }

@@ -9,7 +9,17 @@ data class ChatMessage(
   val toolCalls: List<String> = emptyList(),
   val toolResults: List<String> = emptyList(),
   val imageUris: List<String> = emptyList(),
+  val locationData: LocationData? = null,
   val timestamp: Long = System.currentTimeMillis()
+)
+
+data class LocationData(
+  val latitude: Double,
+  val longitude: Double,
+  val altitude: Double? = null,
+  val speed: Double? = null,
+  val bearing: Double? = null,
+  val accuracy: Double? = null
 )
 
 enum class Role(val value: String) {

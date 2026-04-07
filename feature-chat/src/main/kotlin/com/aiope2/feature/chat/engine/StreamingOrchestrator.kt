@@ -47,6 +47,7 @@ class StreamingOrchestrator(
       val toolAcc = mutableMapOf<Int, MutableMap<String, String>>() // index -> {id, name, args}
       var hasToolCalls = false
       var inThinkTag = false
+      var thinkTagName = "think"
       var buffer = ""
 
       try {
@@ -67,17 +68,21 @@ class StreamingOrchestrator(
 
             // Text content
             var content = delta.optString("content", "")
-            // Reasoning: separate field (DeepSeek, OpenAI o-series) or <think> tags in content (Qwen, some providers)
+            // Reasoning: separate field (DeepSeek, OpenAI o-series) or <think>/<thought> tags in content
             var reasoning = delta.optString("reasoning_content", "").ifBlank {
               delta.optString("reasoning", "")
             }
 
-            // Handle <think> tags in content stream
-            if (content.contains("<think>")) { inThinkTag = true; content = content.substringAfter("<think>") }
+            // Handle <think> and <thought> tags in content stream
+            if (!inThinkTag) {
+              if (content.contains("<think>")) { inThinkTag = true; thinkTagName = "think"; content = content.substringAfter("<think>") }
+              else if (content.contains("<thought>")) { inThinkTag = true; thinkTagName = "thought"; content = content.substringAfter("<thought>") }
+            }
             if (inThinkTag) {
-              if (content.contains("</think>")) {
-                reasoning = content.substringBefore("</think>")
-                content = content.substringAfter("</think>")
+              val closeTag = "</$thinkTagName>"
+              if (content.contains(closeTag)) {
+                reasoning = content.substringBefore(closeTag)
+                content = content.substringAfter(closeTag)
                 inThinkTag = false
               } else {
                 reasoning = content

@@ -285,7 +285,7 @@ class ChatViewModel @Inject constructor(
       _messages.value = _messages.value + assistantMsg
 
       try {
-        val p = providerStore.getActive()  // Chat always uses active profile (toolbar selector)
+        val p = providerStore.getActive()
         val mc = p.activeModelConfig()
         val useTools = mc.toolsOverride == true
         val sb = StringBuilder()
@@ -311,17 +311,10 @@ class ChatViewModel @Inject constructor(
         }
         chatMessages.add("user" to text)
 
-        // Resolve model: if tools enabled, use AGENT task model; otherwise use chat (active profile)
-        val (resolvedProfile, resolvedModel) = if (useTools) {
-          resolveTaskModel(com.aiope2.core.network.ModelTask.AGENT)
-        } else {
-          p to p.selectedModelId
-        }
-
         val orchestrator = StreamingOrchestrator(
-          baseUrl = resolvedProfile.effectiveApiBase(),
-          apiKey = resolvedProfile.apiKey,
-          model = resolvedModel,
+          baseUrl = p.effectiveApiBase(),
+          apiKey = p.apiKey,
+          model = p.selectedModelId,
           tools = toolDefs,
           onToolCall = { name, args -> executeToolCall(name, args) }
         )
@@ -519,12 +512,8 @@ class ChatViewModel @Inject constructor(
           }
         }
 
-        val (resolvedProfile, resolvedModel) = if (useTools) {
-          resolveTaskModel(com.aiope2.core.network.ModelTask.AGENT)
-        } else { p to p.selectedModelId }
-
         val orchestrator = StreamingOrchestrator(
-          baseUrl = resolvedProfile.effectiveApiBase(), apiKey = resolvedProfile.apiKey, model = resolvedModel,
+          baseUrl = p.effectiveApiBase(), apiKey = p.apiKey, model = p.selectedModelId,
           tools = if (useTools) buildToolDefs() else emptyList(),
           onToolCall = { name, args -> executeToolCall(name, args) }
         )

@@ -8,8 +8,7 @@ import org.json.JSONObject
  * Falls back to the active profile if no task-specific override is set.
  */
 enum class ModelTask(val id: String, val label: String, val description: String) {
-  CHAT("chat", "Chat", "Set by toolbar model selector"),  // Not shown in task settings
-  AGENT("agent", "Agent / Tool Use", "Agentic tasks with tool calling"),
+  CHAT("chat", "Chat", "Set by toolbar model selector"),
   SUMMARY("summary", "Summary", "Conversation summarization and compaction"),
   TITLE("title", "Title Generation", "Auto-generate conversation titles"),
   TRANSLATION("translation", "Translation", "Text translation between languages"),

@@ -11,6 +11,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -40,7 +41,7 @@ fun SettingsScreen(providerStore: ProviderStore, onBack: () -> Unit) {
     "list" -> ProfileList(profiles, activeId,
       onSelect = { providerStore.setActive(it.id); activeId = it.id },
       onEdit = { editId = it.id; screen = "edit" },
-      onAdd = { screen = "pick" }, onBack = onBack)
+      onAdd = { screen = "pick" }, onTasks = { screen = "tasks" }, onBack = onBack)
     "pick" -> TemplatePicker(
       onPick = { b ->
         val p = ProviderProfile(builtinId = b.id, label = b.displayName,
@@ -53,18 +54,27 @@ fun SettingsScreen(providerStore: ProviderStore, onBack: () -> Unit) {
         onDelete = { providerStore.delete(profile.id); refresh(); screen = "list" },
         onBack = { screen = "list" })
     }
+    "tasks" -> TaskModelScreen(providerStore, onBack = { screen = "list" })
   }
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 private fun ProfileList(profiles: List<ProviderProfile>, activeId: String,
-  onSelect: (ProviderProfile) -> Unit, onEdit: (ProviderProfile) -> Unit, onAdd: () -> Unit, onBack: () -> Unit) {
+  onSelect: (ProviderProfile) -> Unit, onEdit: (ProviderProfile) -> Unit, onAdd: () -> Unit, onTasks: () -> Unit, onBack: () -> Unit) {
   Scaffold(topBar = { TopAppBar(title = { Text("Providers") },
     navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
     actions = { IconButton(onClick = onAdd) { Icon(Icons.Default.Add, "Add") } })
   }) { pad ->
     LazyColumn(Modifier.fillMaxSize().padding(pad)) {
+      item {
+        ListItem(
+          headlineContent = { Text("🎯 Default Models per Task") },
+          supportingContent = { Text("Set different models for chat, agent, titles, etc.", style = MaterialTheme.typography.bodySmall) },
+          modifier = Modifier.clickable { onTasks() }
+        )
+        HorizontalDivider()
+      }
       items(profiles) { p ->
         val builtin = ProviderTemplates.byId[p.builtinId]
         ListItem(
@@ -369,6 +379,66 @@ private suspend fun testConnection(p: ProviderProfile, mc: ModelConfig): String 
   } catch (e: Exception) { "✗ ${e.message?.take(100)}" }
 }
 
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TaskModelScreen(providerStore: ProviderStore, onBack: () -> Unit) {
+  val ctx = androidx.compose.ui.platform.LocalContext.current
+  val taskStore = remember { com.aiope2.core.network.TaskModelStore(ctx) }
+  val profiles = providerStore.getAll()
+
+  Scaffold(topBar = { TopAppBar(title = { Text("Default Models per Task") },
+    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } })
+  }) { pad ->
+    LazyColumn(Modifier.fillMaxSize().padding(pad)) {
+      items(com.aiope2.core.network.ModelTask.entries.toList()) { task ->
+        var tc by remember { mutableStateOf(taskStore.getTaskConfig(task)) }
+        var expanded by remember { mutableStateOf(false) }
+        val assignedProfile = tc.profileId?.let { pid -> profiles.firstOrNull { it.id == pid } }
+        val display = if (assignedProfile != null) "${assignedProfile.label}: ${tc.modelId ?: assignedProfile.selectedModelId}" else "Use active profile"
+
+        ListItem(
+          headlineContent = { Text(task.label) },
+          supportingContent = { Text("${task.description}\n$display", style = MaterialTheme.typography.bodySmall) },
+          trailingContent = {
+            Box {
+              IconButton(onClick = { expanded = true }) { Icon(Icons.Default.ArrowDropDown, "Select") }
+              DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                DropdownMenuItem(text = { Text("Use active profile (default)") }, onClick = {
+                  taskStore.clearTaskConfig(task); tc = TaskModelConfig(task.id); expanded = false
+                })
+                profiles.forEach { p ->
+                  val models = providerStore.getModelCache(p.builtinId)
+                    ?: providerStore.getModelCacheStale(p.builtinId)
+                    ?: com.aiope2.core.network.ProviderTemplates.byId[p.builtinId]?.defaultModels
+                    ?: emptyList()
+                  // Show profile with its selected model
+                  DropdownMenuItem(
+                    text = { Text("${p.label}: ${p.selectedModelId}") },
+                    onClick = {
+                      val newTc = TaskModelConfig(task.id, p.id, p.selectedModelId)
+                      taskStore.setTaskConfig(task, newTc); tc = newTc; expanded = false
+                    }
+                  )
+                  // Show other models from this profile
+                  models.filter { it.id != p.selectedModelId }.take(5).forEach { m ->
+                    DropdownMenuItem(
+                      text = { Text("  ${p.label}: ${m.displayName}", style = MaterialTheme.typography.bodySmall) },
+                      onClick = {
+                        val newTc = TaskModelConfig(task.id, p.id, m.id)
+                        taskStore.setTaskConfig(task, newTc); tc = newTc; expanded = false
+                      }
+                    )
+                  }
+                }
+              }
+            }
+          }
+        )
+      }
+    }
+  }
+}
 private suspend fun fetchModels(baseUrl: String, apiKey: String): List<ModelDef> = withContext(Dispatchers.IO) {
   try {
     var base = baseUrl.trimEnd('/')

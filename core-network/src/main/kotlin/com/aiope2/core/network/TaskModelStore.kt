@@ -9,10 +9,13 @@ import org.json.JSONObject
  */
 enum class ModelTask(val id: String, val label: String, val description: String) {
   CHAT("chat", "Chat", "General conversation and coding assistance"),
-  AGENT("agent", "Agent / Tool Use", "Agentic tasks with tool calling (run_sh, read_file, etc)"),
-  TITLE("title", "Title Generation", "Generate conversation titles from first message"),
-  COMPACT("compact", "Compact / Summary", "Summarize conversation context"),
-  VISION("vision", "Vision", "Image/video understanding"),
+  AGENT("agent", "Agent / Tool Use", "Agentic tasks with tool calling"),
+  SUMMARY("summary", "Summary", "Conversation summarization and compaction"),
+  TITLE("title", "Title Generation", "Auto-generate conversation titles"),
+  TRANSLATION("translation", "Translation", "Text translation between languages"),
+  IMAGE_RECOGNITION("image", "Image Recognition", "Describe and analyze images"),
+  AUDIO_RECOGNITION("audio", "Audio Recognition", "Transcribe and understand audio"),
+  VIDEO_RECOGNITION("video", "Video Recognition", "Analyze video content"),
 }
 
 data class TaskModelConfig(

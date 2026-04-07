@@ -5,11 +5,13 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import ai.koog.agents.core.agent.AIAgent
 import ai.koog.agents.core.tools.ToolRegistry
+import ai.koog.agents.features.eventHandler.feature.handleEvents
 import ai.koog.prompt.executor.llms.SingleLLMPromptExecutor
 import ai.koog.prompt.executor.clients.openai.OpenAIClientSettings
 import ai.koog.prompt.executor.clients.openai.OpenAILLMClient
 import ai.koog.prompt.llm.LLModel
 import ai.koog.prompt.llm.LLMProvider
+import ai.koog.prompt.streaming.StreamFrame
 import com.aiope2.feature.chat.agent.AiopeTools
 import com.aiope2.feature.chat.db.ChatDao
 import com.aiope2.feature.chat.db.ConversationEntity
@@ -205,51 +207,36 @@ class ChatViewModel @Inject constructor(
         val p = providerStore.getActive()
         val mc = p.activeModelConfig()
         val useTools = mc.toolsOverride == true
+        val sb = StringBuilder()
 
-        if (useTools) {
-          // Koog agent with tool loop (non-streaming)
-          val agent = AIAgent(
-            promptExecutor = executor,
-            systemPrompt = "",
-            llmModel = model,
-            toolRegistry = ToolRegistry { tools(this@ChatViewModel.tools) }
-          )
-          val result = agent.run(text)
-          val updated = _messages.value.toMutableList()
-          updated[updated.lastIndex] = updated.last().copy(content = result)
-          _messages.value = updated
-        } else {
-          // Direct streaming via openai-kotlin
-          val openai = com.aallam.openai.client.OpenAI(com.aallam.openai.client.OpenAIConfig(
-            token = p.apiKey.ifBlank { "unused" },
-            host = com.aallam.openai.client.OpenAIHost(p.effectiveApiBase())
-          ))
-          val sysPrompt = mc.systemPromptOverride
-          val apiMessages = buildList {
-            if (!sysPrompt.isNullOrBlank()) add(com.aallam.openai.api.chat.ChatMessage(role = com.aallam.openai.api.chat.ChatRole.System, content = sysPrompt))
-            _messages.value.dropLast(1).forEach { msg ->
-              add(com.aallam.openai.api.chat.ChatMessage(
-                role = when (msg.role) { Role.USER -> com.aallam.openai.api.chat.ChatRole.User; Role.ASSISTANT -> com.aallam.openai.api.chat.ChatRole.Assistant; else -> com.aallam.openai.api.chat.ChatRole.User },
-                content = msg.content
-              ))
-            }
-          }
-          val request = com.aallam.openai.api.chat.ChatCompletionRequest(
-            model = com.aallam.openai.api.model.ModelId(p.selectedModelId),
-            messages = apiMessages
-          )
-          val sb = StringBuilder()
-          openai.chatCompletions(request).collect { chunk ->
-            chunk.choices.firstOrNull()?.delta?.content?.let { delta ->
-              sb.append(delta)
-              withContext(Dispatchers.Main) {
-                val updated = _messages.value.toMutableList()
-                updated[updated.lastIndex] = updated.last().copy(content = sb.toString())
-                _messages.value = updated
+        val agent = AIAgent(
+          promptExecutor = executor,
+          systemPrompt = "",
+          llmModel = model,
+          toolRegistry = if (useTools) ToolRegistry { tools(this@ChatViewModel.tools) } else ToolRegistry { },
+          installFeatures = {
+            handleEvents {
+              onLLMStreamingFrameReceived { context ->
+                val frame = context.streamFrame
+                if (frame is StreamFrame.TextDelta) {
+                  sb.append(frame.text)
+                  val text = sb.toString()
+                  _messages.value = _messages.value.toMutableList().also {
+                    it[it.lastIndex] = it.last().copy(content = text)
+                  }
+                }
+              }
+              onToolCallStarting { context ->
+                sb.append("\n🔧 ${context.toolName}(${context.toolArgs.toString().take(100)})\n")
+                _messages.value = _messages.value.toMutableList().also {
+                  it[it.lastIndex] = it.last().copy(content = sb.toString())
+                }
               }
             }
           }
-        }
+        )
+
+        agent.run(text)
 
         // Persist final message
         val finalMsg = _messages.value.last()

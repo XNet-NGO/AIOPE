@@ -118,7 +118,7 @@ private fun ChatContent(
           models.forEach { m ->
             val selected = m.id == activeModelId
             DropdownMenuItem(
-              text = { Text("${if (selected) "● " else ""}${m.displayName}",
+              text = { Text("${if (selected) "• " else ""}${m.displayName}",
                 color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                 fontSize = 13.sp) },
               onClick = { onSwitchModel(m.id); showModelPicker = false }

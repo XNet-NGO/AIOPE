@@ -258,7 +258,7 @@ class ChatViewModel @Inject constructor(
           chunk.toolResults?.let { results ->
             for (r in results) toolResultsList.add(r.result.take(2000))
           }
-          chunk.error?.let { sb.append("\n❌ $it") }
+          chunk.error?.let { sb.append("\nError: $it") }
 
           withContext(Dispatchers.Main) {
             _messages.value = _messages.value.toMutableList().also {

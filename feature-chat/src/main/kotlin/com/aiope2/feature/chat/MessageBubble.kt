@@ -102,7 +102,7 @@ private fun ReasoningBlock(reasoning: String) {
   ) {
     Column(Modifier.padding(10.dp)) {
       Text(
-        "${if (expanded) "▼" else "▶"} 💭 Thinking...",
+        "${if (expanded) "▾" else "▸"} Thinking...",
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant
       )
@@ -127,7 +127,7 @@ private fun ToolCallsBlock(calls: List<String>, results: List<String>) {
         color = Color(0xFF1A3A1A),
         modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
       ) {
-        Text("🔧 ${calls[i]}", fontSize = 12.sp, color = Color(0xFF88FF88),
+        Text("${calls[i]}", fontSize = 12.sp, color = Color(0xFF88FF88),
           modifier = Modifier.padding(8.dp, 4.dp), fontFamily = FontFamily.Monospace)
       }
       // Tool result (if available)
@@ -167,7 +167,7 @@ private fun MessageMenu(
         val full = buildString {
           if (message.reasoning.isNotBlank()) append("[Thinking]\n${message.reasoning}\n\n")
           message.toolCalls.forEachIndexed { i, c ->
-            append("🔧 $c\n")
+            append("$c\n")
             if (i < message.toolResults.size) append("${message.toolResults[i]}\n\n")
           }
           append(message.content)

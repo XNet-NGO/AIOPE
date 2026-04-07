@@ -74,7 +74,7 @@ private fun ProfileList(profiles: List<ProviderProfile>, activeId: String,
     LazyColumn(Modifier.fillMaxSize().padding(pad)) {
       item {
         ListItem(
-          headlineContent = { Text("🎯 Default Models per Task") },
+          headlineContent = { Text("Default Models per Task") },
           supportingContent = { Text("Set different models for chat, agent, titles, etc.", style = MaterialTheme.typography.bodySmall) },
           modifier = Modifier.clickable { onTasks() }
         )
@@ -83,9 +83,9 @@ private fun ProfileList(profiles: List<ProviderProfile>, activeId: String,
       items(profiles) { p ->
         val builtin = ProviderTemplates.byId[p.builtinId]
         ListItem(
-          headlineContent = { Text("${builtin?.icon ?: "⚙️"} ${p.label.ifBlank { builtin?.displayName ?: "Custom" }}") },
+          headlineContent = { Text("${p.label.ifBlank { builtin?.displayName ?: "Custom" }}") },
           supportingContent = { Text(p.selectedModelId.ifBlank { "no model" }, style = MaterialTheme.typography.bodySmall) },
-          trailingContent = { if (p.id == activeId) Text("✓", color = MaterialTheme.colorScheme.primary) },
+          trailingContent = { if (p.id == activeId) Text("✔", color = MaterialTheme.colorScheme.primary) },
           modifier = Modifier.combinedClickable(onClick = { onSelect(p) }, onLongClick = { onEdit(p) })
         )
       }
@@ -159,14 +159,14 @@ private fun ProfileEditor(profile: ProviderProfile, store: ProviderStore,
       ExposedDropdownMenuBox(expanded = modelExpanded, onExpandedChange = { modelExpanded = it }) {
         OutlinedTextField(
           value = models.firstOrNull { it.id == p.selectedModelId }?.let { m ->
-            "${m.displayName}  ${if (m.contextWindow > 0) "${m.contextWindow/1000}k" else ""}${if (m.supportsTools) " 🔧" else ""}${if (m.supportsVision) " 👁" else ""}"
+            "${m.displayName}  ${if (m.contextWindow > 0) "${m.contextWindow/1000}k" else ""}${if (m.supportsTools) "" else ""}${if (m.supportsVision) "" else ""}"
           } ?: p.selectedModelId.ifBlank { "Select model" },
           onValueChange = {}, readOnly = true, label = { Text("Selected Model") },
           trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = modelExpanded) },
           modifier = Modifier.fillMaxWidth().menuAnchor())
         ExposedDropdownMenu(expanded = modelExpanded, onDismissRequest = { modelExpanded = false }) {
           models.forEach { m ->
-            DropdownMenuItem(text = { Text("${m.displayName}  ${if (m.contextWindow>0) "${m.contextWindow/1000}k" else ""}${if (m.supportsTools) " 🔧" else ""}${if (m.supportsVision) " 👁" else ""}") },
+            DropdownMenuItem(text = { Text("${m.displayName}  ${if (m.contextWindow>0) "${m.contextWindow/1000}k" else ""}${if (m.supportsTools) "" else ""}${if (m.supportsVision) "" else ""}") },
               onClick = { p = p.copy(selectedModelId = m.id); mc = p.modelConfigs[m.id] ?: ModelConfig(modelId = m.id); modelExpanded = false })
           }
         }
@@ -255,7 +255,7 @@ private fun ProfileEditor(profile: ProviderProfile, store: ProviderStore,
         scope.launch { testResult = testConnection(p, mc); testing = false }
       }, enabled = !testing, modifier = Modifier.fillMaxWidth()) { Text(if (testing) "Testing…" else "Test Connection") }
       testResult?.let { Text(it, style = MaterialTheme.typography.bodySmall,
-        color = if (it.startsWith("✓")) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+        color = if (it.startsWith("[OK]")) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
         modifier = Modifier.padding(top = 4.dp)) }
       Spacer(Modifier.height(8.dp))
       Button(onClick = { saveModelConfig(); onSave(p) }, modifier = Modifier.fillMaxWidth()) { Text("Save & Activate") }
@@ -317,7 +317,7 @@ private suspend fun testConnection(p: ProviderProfile, mc: ModelConfig): String 
       else "v1/chat/completions"
     val url = "$baseUrl/$chatPath"
     val model = p.effectiveModel()
-    if (model.isBlank()) return@withContext "✗ No model selected"
+    if (model.isBlank()) return@withContext "[FAIL] No model selected"
 
     val messages = org.json.JSONArray().put(org.json.JSONObject().put("role", "user").put("content", "Reply with exactly: OK"))
     val body = org.json.JSONObject().apply { put("model", model); put("messages", messages); put("max_tokens", 10)
@@ -329,11 +329,11 @@ private suspend fun testConnection(p: ProviderProfile, mc: ModelConfig): String 
     conn.outputStream.write(body.toString().toByteArray())
     if (conn.responseCode !in 200..299) {
       val err = try { conn.errorStream?.bufferedReader()?.readText()?.take(200) } catch (_: Exception) { null }
-      return@withContext "✗ HTTP ${conn.responseCode}: ${err ?: "error"}"
+      return@withContext "[FAIL] HTTP ${conn.responseCode}: ${err ?: "error"}"
     }
     val resp = org.json.JSONObject(conn.inputStream.bufferedReader().readText())
     val tokens = resp.optJSONObject("usage")?.optInt("total_tokens", 0) ?: 0
-    val results = mutableListOf("✓ Chat: OK ($tokens tok)")
+    val results = mutableListOf("[OK] Chat: OK ($tokens tok)")
 
     if (mc.toolsOverride != false) {
       try {
@@ -349,9 +349,9 @@ private suspend fun testConnection(p: ProviderProfile, mc: ModelConfig): String 
         if (tc.responseCode in 200..299) {
           val tr = org.json.JSONObject(tc.inputStream.bufferedReader().readText())
           val calls = tr.optJSONArray("choices")?.optJSONObject(0)?.optJSONObject("message")?.optJSONArray("tool_calls")
-          results.add(if (calls != null && calls.length() > 0) "✓ Tools: supported" else "⚠ Tools: no tool_calls")
-        } else results.add("✗ Tools: HTTP ${tc.responseCode}")
-      } catch (e: Exception) { results.add("✗ Tools: ${e.message?.take(60)}") }
+          results.add(if (calls != null && calls.length() > 0) "[OK] Tools: supported" else "[WARN] Tools: no tool_calls")
+        } else results.add("[FAIL] Tools: HTTP ${tc.responseCode}")
+      } catch (e: Exception) { results.add("[FAIL] Tools: ${e.message?.take(60)}") }
     }
     if (mc.visionOverride == true) {
       try {
@@ -363,8 +363,8 @@ private suspend fun testConnection(p: ProviderProfile, mc: ModelConfig): String 
         vc.requestMethod = "POST"; vc.setRequestProperty("Content-Type", "application/json")
         if (p.apiKey.isNotBlank()) vc.setRequestProperty("Authorization", "Bearer ${p.apiKey}")
         vc.connectTimeout = 15_000; vc.readTimeout = 30_000; vc.doOutput = true; vc.outputStream.write(vb.toString().toByteArray())
-        results.add(if (vc.responseCode in 200..299) "✓ Vision: supported" else "✗ Vision: HTTP ${vc.responseCode}")
-      } catch (e: Exception) { results.add("✗ Vision: ${e.message?.take(60)}") }
+        results.add(if (vc.responseCode in 200..299) "[OK] Vision: supported" else "[FAIL] Vision: HTTP ${vc.responseCode}")
+      } catch (e: Exception) { results.add("[FAIL] Vision: ${e.message?.take(60)}") }
     }
     if (mc.audioOverride == true) {
       try {
@@ -374,8 +374,8 @@ private suspend fun testConnection(p: ProviderProfile, mc: ModelConfig): String 
         ac.requestMethod = "POST"; ac.setRequestProperty("Content-Type", "application/json")
         if (p.apiKey.isNotBlank()) ac.setRequestProperty("Authorization", "Bearer ${p.apiKey}")
         ac.connectTimeout = 10_000; ac.readTimeout = 15_000; ac.doOutput = true; ac.outputStream.write(ab.toString().toByteArray())
-        results.add(if (ac.responseCode in 200..299) "✓ Audio: supported" else "⚠ Audio: HTTP ${ac.responseCode}")
-      } catch (e: Exception) { results.add("⚠ Audio: ${e.message?.take(60)}") }
+        results.add(if (ac.responseCode in 200..299) "[OK] Audio: supported" else "[WARN] Audio: HTTP ${ac.responseCode}")
+      } catch (e: Exception) { results.add("[WARN] Audio: ${e.message?.take(60)}") }
     }
     if (mc.videoOverride == true) {
       try {
@@ -387,11 +387,11 @@ private suspend fun testConnection(p: ProviderProfile, mc: ModelConfig): String 
         vdc.requestMethod = "POST"; vdc.setRequestProperty("Content-Type", "application/json")
         if (p.apiKey.isNotBlank()) vdc.setRequestProperty("Authorization", "Bearer ${p.apiKey}")
         vdc.connectTimeout = 15_000; vdc.readTimeout = 30_000; vdc.doOutput = true; vdc.outputStream.write(vdb.toString().toByteArray())
-        results.add(if (vdc.responseCode in 200..299) "✓ Video: supported" else "⚠ Video: HTTP ${vdc.responseCode}")
-      } catch (e: Exception) { results.add("⚠ Video: ${e.message?.take(60)}") }
+        results.add(if (vdc.responseCode in 200..299) "[OK] Video: supported" else "[WARN] Video: HTTP ${vdc.responseCode}")
+      } catch (e: Exception) { results.add("[WARN] Video: ${e.message?.take(60)}") }
     }
     results.joinToString("\n")
-  } catch (e: Exception) { "✗ ${e.message?.take(100)}" }
+  } catch (e: Exception) { "[FAIL] ${e.message?.take(100)}" }
 }
 
 

@@ -30,6 +30,13 @@ object ProotExecutor {
         }
 
         File(filesDir, "tmp").mkdirs()
+        File(rootfs, "root").mkdirs()
+        // Ensure /etc/group has our GID to suppress "cannot find name for group ID" warning
+        val groupFile = File(rootfs, "etc/group")
+        if (groupFile.exists()) {
+          val content = groupFile.readText()
+          if (!content.contains(":1077:")) groupFile.appendText("android:x:1077:\n")
+        }
 
         val args = buildProotArgs(rootfs, filesDir, command)
         val env = buildProotEnv(filesDir, nativeLibDir)

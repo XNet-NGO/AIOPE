@@ -200,6 +200,37 @@ class ChatViewModel @Inject constructor(
     return Pair(SingleLLMPromptExecutor(client), model)
   }
 
+  /** Resolve provider + model for a given task. Falls back to active profile. */
+  private fun resolveTaskModel(task: com.aiope2.core.network.ModelTask): Pair<ProviderProfile, String> {
+    val taskStore = com.aiope2.core.network.TaskModelStore(getApplication())
+    val tc = taskStore.getTaskConfig(task)
+    val profile = tc.profileId?.let { providerStore.getById(it) } ?: providerStore.getActive()
+    val modelId = tc.modelId ?: profile.selectedModelId
+    return profile to modelId
+  }
+
+  /** Generate a conversation title using the TITLE task model */
+  private fun generateTitle(firstMessage: String) {
+    viewModelScope.launch(Dispatchers.IO) {
+      try {
+        val (profile, modelId) = resolveTaskModel(com.aiope2.core.network.ModelTask.TITLE)
+        val prompt = "Generate a short title (max 6 words) for a conversation that starts with: \"${firstMessage.take(200)}\". Reply with ONLY the title, no quotes."
+        val orchestrator = StreamingOrchestrator(
+          baseUrl = profile.effectiveApiBase(), apiKey = profile.apiKey, model = modelId
+        )
+        val sb = StringBuilder()
+        orchestrator.stream(listOf("user" to prompt)).collect { chunk ->
+          if (chunk.content.isNotEmpty()) sb.append(chunk.content)
+        }
+        val title = sb.toString().trim().take(60)
+        if (title.isNotBlank()) {
+          chatDao.updateConversation(conversationId, title)
+          refreshConversations()
+        }
+      } catch (_: Exception) { /* silent failure for title gen */ }
+    }
+  }
+
   private val tools = AiopeTools(application)
 
   /** Save content:// URIs to disk as JPEG, return comma-separated relative paths */
@@ -366,6 +397,8 @@ class ChatViewModel @Inject constructor(
         ))
         if (_messages.value.size <= 2) {
           chatDao.updateConversation(conversationId, text.take(50))
+          // Auto-generate title using TITLE task model
+          generateTitle(text)
         }
       } catch (_: kotlinx.coroutines.CancellationException) { /* stopped */ } catch (e: Exception) {
         val updated = _messages.value.toMutableList()
@@ -417,14 +450,16 @@ class ChatViewModel @Inject constructor(
     cancelStreaming(); streamingJob = viewModelScope.launch(Dispatchers.IO) {
       _isStreaming.value = true
       try {
-        val (executor, model) = createClient(com.aiope2.core.network.ModelTask.SUMMARY)
-        val agent = AIAgent(
-          promptExecutor = executor,
-          systemPrompt = "",
-          llmModel = model, toolRegistry = ToolRegistry { }
+        val (profile, modelId) = resolveTaskModel(com.aiope2.core.network.ModelTask.SUMMARY)
+        val prompt = "Summarize this conversation concisely, preserving all key context needed to continue. Start with [Summary].\n\n$transcript"
+        val orchestrator = StreamingOrchestrator(
+          baseUrl = profile.effectiveApiBase(), apiKey = profile.apiKey, model = modelId
         )
-        val summary = agent.run(transcript)
-        val summaryMsg = ChatMessage(role = Role.SYSTEM, content = summary)
+        val sb = StringBuilder()
+        orchestrator.stream(listOf("user" to prompt)).collect { chunk ->
+          if (chunk.content.isNotEmpty()) sb.append(chunk.content)
+        }
+        val summaryMsg = ChatMessage(role = Role.SYSTEM, content = sb.toString())
         _messages.value = listOf(summaryMsg) + remaining
       } catch (_: kotlinx.coroutines.CancellationException) { /* stopped */ } catch (e: Exception) {
         // Don't lose messages on failure
@@ -449,30 +484,77 @@ class ChatViewModel @Inject constructor(
 
   /** Send to LLM without adding a new user message (used by retry) */
   private fun resend(text: String) {
-    viewModelScope.launch(Dispatchers.IO) {
+    cancelStreaming(); streamingJob = viewModelScope.launch(Dispatchers.IO) {
       _isStreaming.value = true
       val assistantMsg = ChatMessage(role = Role.ASSISTANT, content = "")
       _messages.value = _messages.value + assistantMsg
       try {
-        val (executor, model) = createClient(com.aiope2.core.network.ModelTask.CHAT)
-        val agent = AIAgent(
-          promptExecutor = executor,
-          systemPrompt = "",
-          llmModel = model, toolRegistry = ToolRegistry { tools(this@ChatViewModel.tools) }
+        val p = providerStore.getActive()
+        val mc = p.activeModelConfig()
+        val useTools = mc.toolsOverride == true
+        val sb = StringBuilder()
+        val reasoningBlocks = mutableListOf<String>()
+        val currentReasoning = StringBuilder()
+        var isReasoning = false
+        val toolCallsList = mutableListOf<String>()
+        val toolResultsList = mutableListOf<String>()
+
+        val chatMessages = mutableListOf<Pair<String, String>>()
+        mc.systemPromptOverride?.let { if (it.isNotBlank()) chatMessages.add("system" to it) }
+        _messages.value.dropLast(1).forEach { msg ->
+          when (msg.role) {
+            Role.USER -> chatMessages.add("user" to msg.content)
+            Role.ASSISTANT -> chatMessages.add("assistant" to msg.content)
+            else -> {}
+          }
+        }
+
+        val orchestrator = StreamingOrchestrator(
+          baseUrl = p.effectiveApiBase(), apiKey = p.apiKey, model = p.selectedModelId,
+          tools = if (useTools) buildToolDefs() else emptyList(),
+          onToolCall = { name, args -> executeToolCall(name, args) }
         )
-        val result = agent.run(text)
-        val updated = _messages.value.toMutableList()
-        updated[updated.lastIndex] = updated.last().copy(content = result)
-        _messages.value = updated
-        chatDao.insertMessage(MessageEntity(
-          id = updated.last().id, conversationId = conversationId,
-          role = Role.ASSISTANT.value, content = result
-        ))
+
+        orchestrator.stream(chatMessages).collect { chunk ->
+          chunk.reasoning?.let { if (!isReasoning) { isReasoning = true; currentReasoning.clear() }; currentReasoning.append(it) }
+          if (chunk.content.isNotEmpty()) {
+            if (isReasoning && currentReasoning.isNotEmpty()) { reasoningBlocks.add(currentReasoning.toString()); currentReasoning.clear(); isReasoning = false }
+            sb.append(chunk.content)
+          }
+          chunk.toolCalls?.let { calls -> if (isReasoning) { reasoningBlocks.add(currentReasoning.toString()); currentReasoning.clear(); isReasoning = false }; for (c in calls) toolCallsList.add("${c.name}(${c.arguments.values.firstOrNull()?.toString()?.take(80) ?: ""})") }
+          chunk.toolResults?.let { results -> for (r in results) toolResultsList.add(r.result.take(2000)) }
+          chunk.error?.let { sb.append("\nError: $it") }
+          if (chunk.isDone && isReasoning && currentReasoning.isNotEmpty()) { reasoningBlocks.add(currentReasoning.toString()); isReasoning = false }
+          val allReasoning = if (isReasoning && currentReasoning.isNotEmpty()) reasoningBlocks + currentReasoning.toString() else reasoningBlocks.toList()
+          withContext(Dispatchers.Main) {
+            _messages.value = _messages.value.toMutableList().also {
+              it[it.lastIndex] = it.last().copy(content = sb.toString(), reasoning = allReasoning, isReasoningDone = !isReasoning, toolCalls = toolCallsList.toList(), toolResults = toolResultsList.toList())
+            }
+          }
+        }
+
+        val finalMsg = _messages.value.last()
+        chatDao.insertMessage(MessageEntity(id = finalMsg.id, conversationId = conversationId, role = Role.ASSISTANT.value, content = finalMsg.content))
       } catch (_: kotlinx.coroutines.CancellationException) { /* stopped */ } catch (e: Exception) {
         val updated = _messages.value.toMutableList()
         updated[updated.lastIndex] = updated.last().copy(content = "Error: ${e.message}")
         _messages.value = updated
       } finally { _isStreaming.value = false }
     }
+  }
+
+  private fun buildToolDefs() = listOf(
+    StreamingOrchestrator.ToolDef("run_sh", "Execute Android shell command", org.json.JSONObject("""{"type":"object","properties":{"command":{"type":"string"}},"required":["command"]}""")),
+    StreamingOrchestrator.ToolDef("read_file", "Read file contents", org.json.JSONObject("""{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}""")),
+    StreamingOrchestrator.ToolDef("write_file", "Write file", org.json.JSONObject("""{"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"}},"required":["path","content"]}""")),
+    StreamingOrchestrator.ToolDef("list_directory", "List directory", org.json.JSONObject("""{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}"""))
+  )
+
+  private fun executeToolCall(name: String, args: Map<String, Any?>): String = when (name) {
+    "run_sh" -> com.aiope2.core.terminal.shell.ShellExecutor.exec(args["command"]?.toString() ?: "").let { if (it.length > 4000) it.take(4000) + "\n...(truncated)" else it }
+    "read_file" -> try { java.io.File(args["path"].toString()).readText().let { if (it.length > 50000) "File too large" else it } } catch (e: Exception) { "Error: ${e.message}" }
+    "write_file" -> try { val f = java.io.File(args["path"].toString()); f.parentFile?.mkdirs(); f.writeText(args["content"].toString()); "Written ${args["content"].toString().length} bytes" } catch (e: Exception) { "Error: ${e.message}" }
+    "list_directory" -> try { java.io.File(args["path"].toString()).listFiles()?.joinToString("\n") { "${if (it.isDirectory) "d" else "-"} ${it.name}" } ?: "Empty" } catch (e: Exception) { "Error: ${e.message}" }
+    else -> "Unknown tool: $name"
   }
 }

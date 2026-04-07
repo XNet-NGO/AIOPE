@@ -98,6 +98,17 @@ private fun ProfileList(profiles: List<ProviderProfile>, activeId: String,
                   status.value = "Downloading..."
                   scope.launch(kotlinx.coroutines.Dispatchers.IO) {
                     try {
+                      // For redeploy: wipe existing rootfs
+                      if (installed.value) {
+                        status.value = "Removing old install..."
+                        val envDir = com.aiope2.core.terminal.shell.ProotBootstrap.envDir(ctx)
+                        // Delete marker first so setup knows to re-download
+                        envDir.listFiles()?.filter { it.name.startsWith(".") }?.forEach { it.delete() }
+                        // Delete rootfs
+                        val rootfs = com.aiope2.core.terminal.shell.ProotBootstrap.rootfsDir(ctx)
+                        rootfs.deleteRecursively()
+                        status.value = "Old install removed"
+                      }
                       com.aiope2.core.terminal.shell.ProotBootstrap.setup(ctx) { msg ->
                         status.value = msg
                       }

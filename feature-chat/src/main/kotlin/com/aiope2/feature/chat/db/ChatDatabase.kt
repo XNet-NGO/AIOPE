@@ -17,8 +17,9 @@ data class ConversationEntity(
 data class MessageEntity(
   @PrimaryKey val id: String,
   val conversationId: String,
-  val role: String, // user, assistant, system, tool
+  val role: String,
   val content: String,
+  val imagePaths: String = "",
   val timestamp: Long = System.currentTimeMillis()
 )
 
@@ -49,7 +50,7 @@ interface ChatDao {
   suspend fun deleteConversation(id: String)
 }
 
-@Database(entities = [ConversationEntity::class, MessageEntity::class], version = 1)
+@Database(entities = [ConversationEntity::class, MessageEntity::class], version = 2)
 abstract class ChatDatabase : RoomDatabase() {
   abstract fun chatDao(): ChatDao
 }

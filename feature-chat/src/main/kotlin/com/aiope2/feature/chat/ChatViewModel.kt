@@ -103,7 +103,13 @@ class ChatViewModel @Inject constructor(
     conversationId = id
     viewModelScope.launch {
       val msgs = chatDao.getMessages(id).map {
-        ChatMessage(id = it.id, role = Role.from(it.role), content = it.content, timestamp = it.timestamp)
+        val uris = if (it.imagePaths.isNotBlank()) {
+          it.imagePaths.split(",").mapNotNull { relPath ->
+            val file = java.io.File(getApplication<android.app.Application>().filesDir, relPath.trim())
+            if (file.exists()) android.net.Uri.fromFile(file).toString() else null
+          }
+        } else emptyList()
+        ChatMessage(id = it.id, role = Role.from(it.role), content = it.content, imageUris = uris, timestamp = it.timestamp)
       }
       _messages.value = msgs
     }
@@ -196,14 +202,35 @@ class ChatViewModel @Inject constructor(
 
   private val tools = AiopeTools(application)
 
+  /** Save content:// URIs to disk as JPEG, return comma-separated relative paths */
+  private fun saveImagesToDisk(msgId: String, uris: List<String>): String {
+    if (uris.isEmpty()) return ""
+    val dir = java.io.File(getApplication<android.app.Application>().filesDir, "chat_images")
+    dir.mkdirs()
+    return uris.mapIndexedNotNull { i, uriStr ->
+      try {
+        val uri = android.net.Uri.parse(uriStr)
+        val input = getApplication<android.app.Application>().contentResolver.openInputStream(uri) ?: return@mapIndexedNotNull null
+        val bytes = input.readBytes(); input.close()
+        val bmp = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return@mapIndexedNotNull null
+        val file = java.io.File(dir, "${msgId}_$i.jpg")
+        java.io.FileOutputStream(file).use { bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 80, it) }
+        "chat_images/${msgId}_$i.jpg"
+      } catch (_: Exception) { null }
+    }.joinToString(",")
+  }
+
   fun send(text: String, imageUris: List<String> = emptyList()) {
     val userMsg = ChatMessage(role = Role.USER, content = text, imageUris = imageUris)
     _messages.value = _messages.value + userMsg
 
     cancelStreaming(); streamingJob = viewModelScope.launch(Dispatchers.IO) {
+      // Save images to disk
+      val savedPaths = saveImagesToDisk(userMsg.id, imageUris)
       chatDao.insertMessage(MessageEntity(
         id = userMsg.id, conversationId = conversationId,
-        role = userMsg.role.value, content = userMsg.content
+        role = userMsg.role.value, content = userMsg.content,
+        imagePaths = savedPaths
       ))
 
       _isStreaming.value = true

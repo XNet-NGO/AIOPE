@@ -25,11 +25,24 @@ class StreamingOrchestrator(
 
   data class ToolDef(val name: String, val description: String, val parameters: JSONObject)
 
-  fun stream(messages: List<Pair<String, String>>): Flow<ChatStreamChunk> = flow {
-    // Convert initial messages to JSONObjects for proper tool_call support
+  fun stream(messages: List<Pair<String, String>>, imageBase64s: List<String> = emptyList()): Flow<ChatStreamChunk> = flow {
     val rawMessages = mutableListOf<JSONObject>()
     for ((role, content) in messages) {
       rawMessages.add(JSONObject().put("role", role).put("content", content))
+    }
+    // Attach images to the last user message as multimodal content
+    if (imageBase64s.isNotEmpty() && rawMessages.isNotEmpty()) {
+      val lastUserIdx = rawMessages.indices.lastOrNull { rawMessages[it].optString("role") == "user" }
+      if (lastUserIdx != null) {
+        val msg = rawMessages[lastUserIdx]
+        val contentArr = JSONArray()
+        contentArr.put(JSONObject().put("type", "text").put("text", msg.optString("content", "")))
+        for (b64 in imageBase64s) {
+          contentArr.put(JSONObject().put("type", "image_url").put("image_url",
+            JSONObject().put("url", "data:image/jpeg;base64,$b64")))
+        }
+        msg.put("content", contentArr)
+      }
     }
     var maxRounds = 6
 

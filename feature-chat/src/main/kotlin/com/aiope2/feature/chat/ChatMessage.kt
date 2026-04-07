@@ -4,10 +4,11 @@ data class ChatMessage(
   val id: String = java.util.UUID.randomUUID().toString(),
   val role: Role = Role.USER,
   val content: String = "",
-  val reasoning: List<String> = emptyList(), // separate reasoning blocks
+  val reasoning: List<String> = emptyList(),
   val isReasoningDone: Boolean = true,
-  val toolCalls: List<String> = emptyList(),  // "name(args)"
-  val toolResults: List<String> = emptyList(), // "result text"
+  val toolCalls: List<String> = emptyList(),
+  val toolResults: List<String> = emptyList(),
+  val imageUris: List<String> = emptyList(),
   val timestamp: Long = System.currentTimeMillis()
 )
 

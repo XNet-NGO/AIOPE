@@ -196,8 +196,8 @@ class ChatViewModel @Inject constructor(
 
   private val tools = AiopeTools(application)
 
-  fun send(text: String) {
-    val userMsg = ChatMessage(role = Role.USER, content = text)
+  fun send(text: String, imageUris: List<String> = emptyList()) {
+    val userMsg = ChatMessage(role = Role.USER, content = text, imageUris = imageUris)
     _messages.value = _messages.value + userMsg
 
     cancelStreaming(); streamingJob = viewModelScope.launch(Dispatchers.IO) {
@@ -259,7 +259,22 @@ class ChatViewModel @Inject constructor(
           }
         )
 
-        orchestrator.stream(chatMessages).collect { chunk ->
+        // Encode images to base64
+        val imageBase64s = imageUris.mapNotNull { uriStr ->
+          try {
+            val uri = android.net.Uri.parse(uriStr)
+            val input = getApplication<android.app.Application>().contentResolver.openInputStream(uri) ?: return@mapNotNull null
+            val bytes = input.readBytes(); input.close()
+            // Resize if too large (>1MB)
+            val bmp = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return@mapNotNull null
+            val out = java.io.ByteArrayOutputStream()
+            val scale = if (bytes.size > 1_000_000) 60 else 80
+            bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, scale, out)
+            android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP)
+          } catch (_: Exception) { null }
+        }
+
+        orchestrator.stream(chatMessages, imageBase64s).collect { chunk ->
           // Reasoning — accumulate into current block
           chunk.reasoning?.let { r ->
             if (!isReasoning) { isReasoning = true; currentReasoning.clear() }

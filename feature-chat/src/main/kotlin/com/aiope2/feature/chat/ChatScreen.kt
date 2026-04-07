@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
@@ -39,7 +40,7 @@ fun ChatScreen(viewModel: ChatViewModel = hiltViewModel(), onOpenSettings: () ->
       ChatContent(
         messages = messages, isStreaming = isStreaming, terminalVisible = terminalVisible,
         imeVisible = imeVisible, modelLabel = modelLabel,
-        onSend = viewModel::send, onStop = { viewModel.cancelStreaming() }, onToggleTerminal = viewModel::toggleTerminal,
+        onSend = { text, imgs -> viewModel.send(text, imgs) }, onStop = { viewModel.cancelStreaming() }, onToggleTerminal = viewModel::toggleTerminal,
         onOpenSettings = onOpenSettings,
         onGetModels = { viewModel.getModelList() }, onGetActiveModelId = { viewModel.providerStore.getActive().selectedModelId },
         onSwitchModel = { viewModel.switchModel(it) },
@@ -60,7 +61,7 @@ fun ChatScreen(viewModel: ChatViewModel = hiltViewModel(), onOpenSettings: () ->
       ChatContent(
         messages = messages, isStreaming = isStreaming, terminalVisible = terminalVisible,
         imeVisible = imeVisible, modelLabel = modelLabel,
-        onSend = viewModel::send, onStop = { viewModel.cancelStreaming() }, onToggleTerminal = viewModel::toggleTerminal,
+        onSend = { text, imgs -> viewModel.send(text, imgs) }, onStop = { viewModel.cancelStreaming() }, onToggleTerminal = viewModel::toggleTerminal,
         onOpenSettings = onOpenSettings,
         onGetModels = { viewModel.getModelList() }, onGetActiveModelId = { viewModel.providerStore.getActive().selectedModelId },
         onSwitchModel = { viewModel.switchModel(it) },
@@ -88,7 +89,7 @@ fun ChatScreen(viewModel: ChatViewModel = hiltViewModel(), onOpenSettings: () ->
 private fun ChatContent(
   messages: List<ChatMessage>, isStreaming: Boolean, terminalVisible: Boolean,
   imeVisible: Boolean, modelLabel: String,
-  onSend: (String) -> Unit, onStop: () -> Unit = {}, onToggleTerminal: () -> Unit,
+  onSend: (String, List<String>) -> Unit, onStop: () -> Unit = {}, onToggleTerminal: () -> Unit,
   onOpenSettings: () -> Unit,
   onGetModels: () -> List<com.aiope2.core.network.ModelDef>, onGetActiveModelId: () -> String,
   onSwitchModel: (String) -> Unit,
@@ -169,7 +170,7 @@ private fun ChatContent(
 // ── Empty state ──
 
 @Composable
-private fun EmptyState(onSend: (String) -> Unit, modifier: Modifier = Modifier) {
+private fun EmptyState(onSend: (String, List<String>) -> Unit, modifier: Modifier = Modifier) {
   val suggestions = listOf(
     "Explain this error", "Write a Python script to...",
     "List files in /sdcard", "What's my Android version?"
@@ -181,7 +182,7 @@ private fun EmptyState(onSend: (String) -> Unit, modifier: Modifier = Modifier) 
       color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
     Spacer(Modifier.height(16.dp))
     suggestions.forEach { s ->
-      TextButton(onClick = { onSend(s) }, modifier = Modifier.fillMaxWidth()) {
+      TextButton(onClick = { onSend(s, emptyList()) }, modifier = Modifier.fillMaxWidth()) {
         Text(s, fontSize = 13.sp, color = MaterialTheme.colorScheme.tertiary)
       }
     }
@@ -215,10 +216,10 @@ private fun MessageList(messages: List<ChatMessage>, onEdit: ((Int) -> Unit)? = 
 // ── Input bar ──
 
 @Composable
-private fun ChatInput(onSend: (String) -> Unit, onStop: () -> Unit = {}, isStreaming: Boolean, editText: String = "", onEditTextChange: (String) -> Unit = {}) {
+private fun ChatInput(onSend: (String, List<String>) -> Unit, onStop: () -> Unit = {}, isStreaming: Boolean, editText: String = "", onEditTextChange: (String) -> Unit = {}) {
   var text by remember { mutableStateOf("") }
+  val pendingImages = remember { mutableStateListOf<String>() }
 
-  // When editText changes externally (from Edit & Resend), update local state
   LaunchedEffect(editText) { if (editText.isNotBlank()) { text = editText; onEditTextChange("") } }
   val context = androidx.compose.ui.platform.LocalContext.current
   val launcher = androidx.activity.compose.rememberLauncherForActivityResult(
@@ -226,11 +227,32 @@ private fun ChatInput(onSend: (String) -> Unit, onStop: () -> Unit = {}, isStrea
   ) { uri ->
     uri?.let {
       // For now, append file path to message
-      text = text + (if (text.isNotBlank()) "\n" else "") + "[Attached: $uri]"
+      pendingImages.add(uri.toString())
     }
   }
 
   Column(Modifier.fillMaxWidth().padding(8.dp)) {
+    // Pending image thumbnails
+    if (pendingImages.isNotEmpty()) {
+      Row(Modifier.fillMaxWidth().padding(bottom = 4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        pendingImages.forEach { uri ->
+          Box(Modifier.size(48.dp)) {
+            val bmp = remember(uri) {
+              try { android.provider.MediaStore.Images.Media.getBitmap(context.contentResolver, android.net.Uri.parse(uri)) }
+              catch (_: Exception) { null }
+            }
+            if (bmp != null) {
+              AndroidView(factory = { ctx -> android.widget.ImageView(ctx).apply {
+                scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
+                setImageBitmap(bmp); clipToOutline = true
+              }}, modifier = Modifier.size(48.dp))
+            }
+          }
+        }
+        Text("${pendingImages.size} image(s)", style = MaterialTheme.typography.labelSmall,
+          modifier = Modifier.align(Alignment.CenterVertically))
+      }
+    }
     OutlinedTextField(
       value = text, onValueChange = { text = it },
       modifier = Modifier.fillMaxWidth(),
@@ -247,7 +269,7 @@ private fun ChatInput(onSend: (String) -> Unit, onStop: () -> Unit = {}, isStrea
       val cameraUri = remember { mutableStateOf<android.net.Uri?>(null) }
       val photoLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.TakePicture()
-      ) { success -> if (success) cameraUri.value?.let { text = text + (if (text.isNotBlank()) "\n" else "") + "[Photo: $it]" } }
+      ) { success -> if (success) cameraUri.value?.let { pendingImages.add(it.toString()) } }
       IconButton(onClick = {
         val file = java.io.File(context.cacheDir, "photo_${System.currentTimeMillis()}.jpg")
         val uri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
@@ -275,7 +297,7 @@ private fun ChatInput(onSend: (String) -> Unit, onStop: () -> Unit = {}, isStrea
         Icon(Icons.Default.Mic, "Voice")
       }
       // Clear
-      IconButton(onClick = { text = "" }) {
+      IconButton(onClick = { text = ""; pendingImages.clear() }) {
         Icon(Icons.Default.Clear, "Clear")
       }
       Spacer(Modifier.weight(1f))
@@ -283,9 +305,11 @@ private fun ChatInput(onSend: (String) -> Unit, onStop: () -> Unit = {}, isStrea
       Button(
         onClick = {
           if (isStreaming) { onStop() }
-          else if (text.isNotBlank()) { onSend(text.trim()); text = "" }
+          else if (text.isNotBlank() || pendingImages.isNotEmpty()) {
+            onSend(text.trim(), pendingImages.toList()); text = ""; pendingImages.clear()
+          }
         },
-        enabled = text.isNotBlank() || isStreaming,
+        enabled = text.isNotBlank() || pendingImages.isNotEmpty() || isStreaming,
         colors = ButtonDefaults.buttonColors(
           containerColor = if (isStreaming) Color(0xFFCC0000) else MaterialTheme.colorScheme.primary
         )

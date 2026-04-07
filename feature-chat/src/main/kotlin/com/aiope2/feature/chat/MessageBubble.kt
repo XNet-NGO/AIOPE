@@ -50,6 +50,22 @@ fun MessageBubble(
       Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.primary,
         modifier = Modifier.widthIn(max = 320.dp)) {
         Column {
+          if (message.imageUris.isNotEmpty()) {
+            Row(Modifier.padding(8.dp, 8.dp, 8.dp, 0.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+              message.imageUris.forEach { uri ->
+                val bmp = remember(uri) {
+                  try { android.provider.MediaStore.Images.Media.getBitmap(ctx.contentResolver, android.net.Uri.parse(uri)) }
+                  catch (_: Exception) { null }
+                }
+                if (bmp != null) {
+                  AndroidView(factory = { c -> android.widget.ImageView(c).apply {
+                    scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
+                    setImageBitmap(bmp); clipToOutline = true
+                  }}, modifier = Modifier.size(56.dp))
+                }
+              }
+            }
+          }
           SelectionContainer {
             Text(message.content, color = MaterialTheme.colorScheme.onPrimary,
               modifier = Modifier.padding(12.dp), style = MaterialTheme.typography.bodyMedium)

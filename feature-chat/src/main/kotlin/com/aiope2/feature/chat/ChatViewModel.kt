@@ -45,15 +45,19 @@ class ChatViewModel @Inject constructor(
 
   private var conversationId = UUID.randomUUID().toString()
 
-  val modelLabel: String get() {
-    val p = providerStore.getActive()
-    val id = p.selectedModelId.substringAfterLast('/')
-    return id.ifBlank { p.label.ifBlank { "No model" } }
-  }
+  val _modelLabel = MutableStateFlow("")
+  val modelLabel: String get() = _modelLabel.value
 
   fun switchModel(modelId: String) {
     val p = providerStore.getActive()
     providerStore.save(p.copy(selectedModelId = modelId))
+    _modelLabel.value = modelId.substringAfterLast('/').ifBlank { p.label.ifBlank { "No model" } }
+  }
+
+  private fun refreshModelLabel() {
+    val p = providerStore.getActive()
+    val id = p.selectedModelId.substringAfterLast('/')
+    _modelLabel.value = id.ifBlank { p.label.ifBlank { "No model" } }
   }
 
   fun getModelList(): List<ModelDef> {
@@ -68,6 +72,7 @@ class ChatViewModel @Inject constructor(
   val conversations = _conversations.asStateFlow()
 
   init {
+    refreshModelLabel()
     viewModelScope.launch {
       chatDao.insertConversation(ConversationEntity(id = conversationId))
       refreshConversations()

@@ -24,6 +24,7 @@ fun ChatScreen(viewModel: ChatViewModel = hiltViewModel(), onOpenSettings: () ->
   val messages by viewModel.messages.collectAsStateWithLifecycle()
   val isStreaming by viewModel.isStreaming.collectAsStateWithLifecycle()
   val terminalVisible by viewModel.terminalVisible.collectAsStateWithLifecycle()
+  val modelLabel by viewModel._modelLabel.collectAsStateWithLifecycle()
   val config = LocalConfiguration.current
   val isLandscape = config.screenWidthDp > config.screenHeightDp
   var showModelPicker by remember { mutableStateOf(false) }
@@ -36,7 +37,7 @@ fun ChatScreen(viewModel: ChatViewModel = hiltViewModel(), onOpenSettings: () ->
     Row(Modifier.fillMaxSize()) {
       ChatContent(
         messages = messages, isStreaming = isStreaming, terminalVisible = terminalVisible,
-        imeVisible = imeVisible, modelLabel = viewModel.modelLabel,
+        imeVisible = imeVisible, modelLabel = modelLabel,
         onSend = viewModel::send, onToggleTerminal = viewModel::toggleTerminal,
         onOpenSettings = onOpenSettings,
         onGetModels = { viewModel.getModelList() }, onGetActiveModelId = { viewModel.providerStore.getActive().selectedModelId },
@@ -56,7 +57,7 @@ fun ChatScreen(viewModel: ChatViewModel = hiltViewModel(), onOpenSettings: () ->
     Column(Modifier.fillMaxSize()) {
       ChatContent(
         messages = messages, isStreaming = isStreaming, terminalVisible = terminalVisible,
-        imeVisible = imeVisible, modelLabel = viewModel.modelLabel,
+        imeVisible = imeVisible, modelLabel = modelLabel,
         onSend = viewModel::send, onToggleTerminal = viewModel::toggleTerminal,
         onOpenSettings = onOpenSettings,
         onGetModels = { viewModel.getModelList() }, onGetActiveModelId = { viewModel.providerStore.getActive().selectedModelId },

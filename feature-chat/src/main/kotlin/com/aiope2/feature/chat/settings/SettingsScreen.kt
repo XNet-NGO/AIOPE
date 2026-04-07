@@ -222,6 +222,16 @@ private fun ProfileEditor(profile: ProviderProfile, store: ProviderStore,
           LabeledSwitch("Video", mc.videoOverride ?: false) { mc = mc.copy(videoOverride = it); saveModelConfig() }
         }
 
+        // Reasoning
+        Text("Reasoning", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 8.dp))
+        val reasoningOptions = listOf("off", "auto", "low", "medium", "high")
+        val reasoningIdx = reasoningOptions.indexOf(mc.reasoningEffort ?: "off").coerceAtLeast(0)
+        Text("Reasoning Effort: ${reasoningOptions[reasoningIdx]}", style = MaterialTheme.typography.bodySmall)
+        Slider(value = reasoningIdx.toFloat(), onValueChange = {
+          val v = reasoningOptions[it.toInt().coerceIn(0, reasoningOptions.size - 1)]
+          mc = mc.copy(reasoningEffort = if (v == "off") null else v); saveModelConfig()
+        }, valueRange = 0f..4f, steps = 3)
+
         // Parameters
         Text("Parameters", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 8.dp))
         LogSlider("Temperature", mc.temperature, 0f, 2f) { mc = mc.copy(temperature = if (it <= 0f) null else it); saveModelConfig() }

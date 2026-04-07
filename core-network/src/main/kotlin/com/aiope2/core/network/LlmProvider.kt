@@ -16,6 +16,8 @@ data class ModelConfig(
   val topP: Float? = null,
   val topK: Int? = null,
   val maxTokens: Int? = null,
+  // Reasoning (null = off, "auto", "low", "medium", "high")
+  val reasoningEffort: String? = null,
   // Context
   val maxContextMessages: Int? = null,
   val systemPromptOverride: String? = null
@@ -31,6 +33,7 @@ data class ModelConfig(
     topP?.let { put("topP", it.toDouble()) }
     topK?.let { put("topK", it) }
     maxTokens?.let { put("maxTokens", it) }
+    reasoningEffort?.let { put("reasoningEffort", it) }
     maxContextMessages?.let { put("maxContextMessages", it) }
     systemPromptOverride?.let { put("systemPromptOverride", it) }
   }
@@ -46,6 +49,7 @@ data class ModelConfig(
       topP = if (j.has("topP")) j.getDouble("topP").toFloat() else null,
       topK = if (j.has("topK")) j.getInt("topK") else null,
       maxTokens = if (j.has("maxTokens")) j.getInt("maxTokens") else null,
+      reasoningEffort = if (j.has("reasoningEffort")) j.getString("reasoningEffort") else null,
       maxContextMessages = if (j.has("maxContextMessages")) j.getInt("maxContextMessages") else null,
       systemPromptOverride = if (j.has("systemPromptOverride")) j.getString("systemPromptOverride") else null,
     )

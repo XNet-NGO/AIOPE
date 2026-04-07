@@ -163,6 +163,8 @@ class ChatViewModel @Inject constructor(
                   msgs.remove(0)
                 }
               }
+              // Add reasoning_effort if set
+              mc.reasoningEffort?.let { obj.put("reasoning_effort", it) }
               val body = okhttp3.RequestBody.create(req.body!!.contentType(), obj.toString())
               chain.proceed(req.newBuilder().method(req.method, body).build())
             } catch (_: Exception) { chain.proceed(req) }

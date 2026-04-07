@@ -99,12 +99,12 @@ object ShellDiscovery {
 
         args.addAll(listOf(
             "-r", rootfs, "-0", "--link2symlink", "--sysvipc", "-L",
-            "-w", "/root",
+            "-w", "/",
             "/usr/bin/env",
             "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
             "HOME=/root", "USER=root", "TERM=xterm-256color",
             "TMPDIR=/tmp", "LANG=C.UTF-8", "LC_ALL=C.UTF-8",
-            "/bin/bash", "--login"
+            "/bin/bash", "--login", "-c", "cd /root 2>/dev/null; exec /bin/bash --login"
         ))
         return args.toTypedArray()
     }

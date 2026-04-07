@@ -187,8 +187,7 @@ private fun ProfileEditor(profile: ProviderProfile, store: ProviderStore,
       Section("Provider")
       Field("Name", p.label) { p = p.copy(label = it) }
       Field("Base URL", p.apiBase, builtin?.apiBase ?: "https://api.example.com/v1") { p = p.copy(apiBase = it) }
-      if (builtin?.requiresApiKey != false)
-        Field("API Key", p.apiKey, builtin?.apiKeyHint ?: "API key") { p = p.copy(apiKey = it) }
+      Field("API Key", p.apiKey, builtin?.apiKeyHint ?: "API key") { p = p.copy(apiKey = it) }
 
       // Model selector
       Section("Model")

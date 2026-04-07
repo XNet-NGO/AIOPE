@@ -109,7 +109,7 @@ object ProotExecutor {
         args.addAll(listOf(
             "-r", rootfs.absolutePath,
             "-0", "--link2symlink", "--sysvipc", "-L",
-            "-w", "/root",
+            "-w", "/",
             "/usr/bin/env",
             "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
             "HOME=/root", "USER=root", "TERM=xterm-256color",

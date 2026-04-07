@@ -105,7 +105,7 @@ class ChatViewModel @Inject constructor(
   }
 
   // LLM client — resolves task model, then creates client
-  private fun createClient(task: com.aiope2.core.network.ModelTask = com.aiope2.core.network.ModelTask.CHAT): Triple<SingleLLMPromptExecutor, LLModel, Boolean> {
+  private fun createClient(task: com.aiope2.core.network.ModelTask = com.aiope2.core.network.ModelTask.CHAT): Pair<SingleLLMPromptExecutor, LLModel> {
     val taskStore = com.aiope2.core.network.TaskModelStore(getApplication())
     val tc = taskStore.getTaskConfig(task)
 
@@ -126,18 +126,49 @@ class ChatViewModel @Inject constructor(
       ai.koog.prompt.executor.clients.ConnectionTimeoutConfig(),
       chatPath, "v1/responses", "v1/embeddings", "v1/moderations", "v1/models"
     )
-    val client = OpenAILLMClient(apiKey = p.apiKey.ifBlank { "unused" }, settings = settings)
-    val model = LLModel(
-      LLMProvider.OpenAI, modelId,
-      listOf(
-        ai.koog.prompt.llm.LLMCapability.Completion,
-        ai.koog.prompt.llm.LLMCapability.Tools,
-        ai.koog.prompt.llm.LLMCapability.Temperature,
-        ai.koog.prompt.llm.LLMCapability.OpenAIEndpoint.Completions,
-      )
-    )
+
     val toolsEnabled = mc.toolsOverride ?: isToolCapable(modelId)
-    return Triple(SingleLLMPromptExecutor(client), model, toolsEnabled)
+    val stripSystemPrompt = isSystemPromptBlocked(modelId) || mc.systemPromptOverride.isNullOrBlank()
+    val stripTools = !toolsEnabled
+
+    // OkHttp interceptor strips unsupported fields before they reach the API
+    val ktorClient = io.ktor.client.HttpClient(io.ktor.client.engine.okhttp.OkHttp) {
+      engine {
+        addInterceptor { chain ->
+          val req = chain.request()
+          if (req.method == "POST" && req.body != null) {
+            val buf = okio.Buffer(); req.body!!.writeTo(buf)
+            try {
+              val obj = org.json.JSONObject(buf.readUtf8())
+              if (stripTools) { obj.remove("tools"); obj.remove("tool_choice") }
+              if (stripSystemPrompt) {
+                val msgs = obj.optJSONArray("messages")
+                if (msgs != null && msgs.length() > 0 &&
+                    msgs.getJSONObject(0).optString("role").let { it == "system" || it == "developer" }) {
+                  msgs.remove(0)
+                }
+              }
+              val body = okhttp3.RequestBody.create(req.body!!.contentType(), obj.toString())
+              chain.proceed(req.newBuilder().method(req.method, body).build())
+            } catch (_: Exception) { chain.proceed(req) }
+          } else chain.proceed(req)
+        }
+      }
+    }
+
+    val client = OpenAILLMClient(p.apiKey.ifBlank { "unused" }, settings, ktorClient)
+    val model = LLModel(LLMProvider.OpenAI, modelId, listOf(
+      ai.koog.prompt.llm.LLMCapability.Completion,
+      ai.koog.prompt.llm.LLMCapability.Tools,
+      ai.koog.prompt.llm.LLMCapability.Temperature,
+      ai.koog.prompt.llm.LLMCapability.OpenAIEndpoint.Completions,
+    ))
+    return Pair(SingleLLMPromptExecutor(client), model)
+  }
+
+  private fun isSystemPromptBlocked(modelId: String): Boolean {
+    val id = modelId.lowercase()
+    return id.contains("gemma") || id.contains("embedding") || id.contains("tts")
   }
 
   /** Heuristic: does this model ID likely support tool/function calling? */
@@ -160,13 +191,6 @@ class ChatViewModel @Inject constructor(
   }
   private val tools = AiopeTools(application)
 
-  private fun getSystemPrompt(): String {
-    val p = providerStore.getActive()
-    val mc = p.activeModelConfig()
-    return mc.systemPromptOverride
-      ?: "You are AIOPE, an AI coding assistant on Android. Use tools when asked to run commands or manage files. Be concise."
-  }
-
   fun send(text: String) {
     val userMsg = ChatMessage(role = Role.USER, content = text)
     _messages.value = _messages.value + userMsg
@@ -182,12 +206,12 @@ class ChatViewModel @Inject constructor(
       _messages.value = _messages.value + assistantMsg
 
       try {
-        val (executor, model, toolsEnabled) = createClient(com.aiope2.core.network.ModelTask.CHAT)
+        val (executor, model) = createClient(com.aiope2.core.network.ModelTask.CHAT)
         val agent = AIAgent(
           promptExecutor = executor,
-          systemPrompt = getSystemPrompt(),
+          systemPrompt = "",
           llmModel = model,
-          toolRegistry = if (toolsEnabled) ToolRegistry { tools(this@ChatViewModel.tools) } else ToolRegistry { }
+          toolRegistry = ToolRegistry { tools(this@ChatViewModel.tools) }
         )
 
         val result = agent.run(text)
@@ -247,10 +271,10 @@ class ChatViewModel @Inject constructor(
     viewModelScope.launch(Dispatchers.IO) {
       _isStreaming.value = true
       try {
-        val (executor, model, toolsEnabled) = createClient(com.aiope2.core.network.ModelTask.SUMMARY)
+        val (executor, model) = createClient(com.aiope2.core.network.ModelTask.SUMMARY)
         val agent = AIAgent(
           promptExecutor = executor,
-          systemPrompt = "Summarize this conversation concisely, preserving all key context needed to continue. Start with [Summary].",
+          systemPrompt = "",
           llmModel = model, toolRegistry = ToolRegistry { }
         )
         val summary = agent.run(transcript)
@@ -284,10 +308,11 @@ class ChatViewModel @Inject constructor(
       val assistantMsg = ChatMessage(role = Role.ASSISTANT, content = "")
       _messages.value = _messages.value + assistantMsg
       try {
-        val (executor, model, toolsEnabled) = createClient(com.aiope2.core.network.ModelTask.CHAT)
+        val (executor, model) = createClient(com.aiope2.core.network.ModelTask.CHAT)
         val agent = AIAgent(
-          promptExecutor = executor, systemPrompt = getSystemPrompt(),
-          llmModel = model, toolRegistry = if (toolsEnabled) ToolRegistry { tools(this@ChatViewModel.tools) } else ToolRegistry { }
+          promptExecutor = executor,
+          systemPrompt = "",
+          llmModel = model, toolRegistry = ToolRegistry { tools(this@ChatViewModel.tools) }
         )
         val result = agent.run(text)
         val updated = _messages.value.toMutableList()

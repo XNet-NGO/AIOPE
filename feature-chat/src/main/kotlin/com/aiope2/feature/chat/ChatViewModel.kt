@@ -24,6 +24,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.UUID
 import javax.inject.Inject
 
@@ -241,9 +242,11 @@ class ChatViewModel @Inject constructor(
           openai.chatCompletions(request).collect { chunk ->
             chunk.choices.firstOrNull()?.delta?.content?.let { delta ->
               sb.append(delta)
-              val updated = _messages.value.toMutableList()
-              updated[updated.lastIndex] = updated.last().copy(content = sb.toString())
-              _messages.value = updated
+              withContext(Dispatchers.Main) {
+                val updated = _messages.value.toMutableList()
+                updated[updated.lastIndex] = updated.last().copy(content = sb.toString())
+                _messages.value = updated
+              }
             }
           }
         }

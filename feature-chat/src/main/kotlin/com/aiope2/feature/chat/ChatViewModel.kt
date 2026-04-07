@@ -142,7 +142,7 @@ class ChatViewModel @Inject constructor(
       chatPath, "v1/responses", "v1/embeddings", "v1/moderations", "v1/models"
     )
 
-    val toolsEnabled = mc.toolsOverride ?: true  // null = send tools by default, user can toggle off in settings
+    val toolsEnabled = mc.toolsOverride == true  // null/false = no tools, true = tools on
     val stripSystemPrompt = mc.systemPromptOverride.isNullOrBlank()
     val stripTools = !toolsEnabled
 

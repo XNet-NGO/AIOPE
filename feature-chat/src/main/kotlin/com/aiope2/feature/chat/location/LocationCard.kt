@@ -10,6 +10,7 @@ import androidx.compose.ui.unit.dp
 import org.ramani.compose.CameraPosition
 import org.ramani.compose.MapLibre
 import org.ramani.compose.Symbol
+import org.ramani.compose.UiSettings
 
 @Composable
 fun LocationCard(
@@ -26,7 +27,6 @@ fun LocationCard(
     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
   ) {
     Box(modifier = Modifier.fillMaxWidth().height(260.dp).clip(RoundedCornerShape(8.dp))) {
-      // Initial position only — never overridden so user can freely pan/zoom
       val initialPos = remember {
         CameraPosition(
           target = org.maplibre.android.geometry.LatLng(latitude, longitude),
@@ -36,10 +36,23 @@ fun LocationCard(
       val style = remember {
         org.maplibre.android.maps.Style.Builder().fromUri("https://tiles.openfreemap.org/styles/liberty")
       }
+      val ui = remember {
+        UiSettings(
+          scrollGesturesEnabled = true,
+          zoomGesturesEnabled = true,
+          rotateGesturesEnabled = false,
+          tiltGesturesEnabled = false,
+          doubleTapGesturesEnabled = true,
+          quickZoomGesturesEnabled = true,
+          isLogoEnabled = false,
+          isAttributionEnabled = false
+        )
+      }
       MapLibre(
         modifier = Modifier.fillMaxSize(),
         styleBuilder = style,
-        cameraPosition = initialPos
+        cameraPosition = initialPos,
+        uiSettings = ui
       ) {
         Symbol(
           center = org.maplibre.android.geometry.LatLng(latitude, longitude),

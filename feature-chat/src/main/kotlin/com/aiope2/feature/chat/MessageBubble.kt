@@ -6,6 +6,7 @@ import android.content.Context
 import android.widget.TextView
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -101,20 +102,32 @@ private fun ReasoningBlock(reasoning: String) {
     tonalElevation = 2.dp
   ) {
     Column(Modifier.padding(10.dp)) {
-      Text(
-        "${if (expanded) "▾" else "▸"} Thinking...",
-        style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
-      )
+      Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(if (expanded) "▾ " else "▸ ", style = MaterialTheme.typography.labelSmall,
+          color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("Thinking", style = MaterialTheme.typography.labelSmall,
+          color = MaterialTheme.colorScheme.onSurfaceVariant)
+        LoadingDots()
+      }
       AnimatedVisibility(visible = expanded) {
-        Text(
-          reasoning, fontSize = 12.sp, lineHeight = 16.sp,
+        Text(reasoning, fontSize = 12.sp, lineHeight = 16.sp,
           color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-          modifier = Modifier.padding(top = 6.dp)
-        )
+          modifier = Modifier.padding(top = 6.dp))
       }
     }
   }
+}
+
+@Composable
+private fun LoadingDots() {
+  val transition = rememberInfiniteTransition(label = "dots")
+  val dot by transition.animateFloat(
+    initialValue = 0f, targetValue = 4f,
+    animationSpec = infiniteRepeatable(tween(800, easing = LinearEasing), RepeatMode.Restart),
+    label = "dots"
+  )
+  Text(".".repeat(dot.toInt().coerceIn(0, 3)), style = MaterialTheme.typography.labelSmall,
+    color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
 @Composable

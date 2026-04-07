@@ -547,14 +547,21 @@ class ChatViewModel @Inject constructor(
     StreamingOrchestrator.ToolDef("run_sh", "Execute Android shell command", org.json.JSONObject("""{"type":"object","properties":{"command":{"type":"string"}},"required":["command"]}""")),
     StreamingOrchestrator.ToolDef("read_file", "Read file contents", org.json.JSONObject("""{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}""")),
     StreamingOrchestrator.ToolDef("write_file", "Write file", org.json.JSONObject("""{"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"}},"required":["path","content"]}""")),
-    StreamingOrchestrator.ToolDef("list_directory", "List directory", org.json.JSONObject("""{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}"""))
+    StreamingOrchestrator.ToolDef("list_directory", "List directory", org.json.JSONObject("""{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}""")),
+    StreamingOrchestrator.ToolDef("get_location", "Get the device's current GPS location with high accuracy. Returns latitude, longitude, altitude, speed, bearing, and accuracy.", org.json.JSONObject("""{"type":"object","properties":{}}"""))
   )
+
+  private val locationProvider by lazy { com.aiope2.feature.chat.location.LocationProvider(getApplication()) }
 
   private fun executeToolCall(name: String, args: Map<String, Any?>): String = when (name) {
     "run_sh" -> com.aiope2.core.terminal.shell.ShellExecutor.exec(args["command"]?.toString() ?: "").let { if (it.length > 4000) it.take(4000) + "\n...(truncated)" else it }
     "read_file" -> try { java.io.File(args["path"].toString()).readText().let { if (it.length > 50000) "File too large" else it } } catch (e: Exception) { "Error: ${e.message}" }
     "write_file" -> try { val f = java.io.File(args["path"].toString()); f.parentFile?.mkdirs(); f.writeText(args["content"].toString()); "Written ${args["content"].toString().length} bytes" } catch (e: Exception) { "Error: ${e.message}" }
     "list_directory" -> try { java.io.File(args["path"].toString()).listFiles()?.joinToString("\n") { "${if (it.isDirectory) "d" else "-"} ${it.name}" } ?: "Empty" } catch (e: Exception) { "Error: ${e.message}" }
+    "get_location" -> kotlinx.coroutines.runBlocking {
+      val loc = locationProvider.getFreshLocation() ?: locationProvider.getLastLocation()
+      if (loc != null) locationProvider.formatLocation(loc) else "Location unavailable — check permissions or GPS"
+    }
     else -> "Unknown tool: $name"
   }
 }

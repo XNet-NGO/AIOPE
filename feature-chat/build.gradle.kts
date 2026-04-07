@@ -30,6 +30,9 @@ dependencies {
   implementation(libs.markwon.ext.strikethrough)
   implementation("io.noties.markwon:ext-tables:4.6.2")
 
+  // location
+  implementation("com.google.android.gms:play-services-location:21.3.0")
+
   // room
   implementation(libs.androidx.room.runtime)
   implementation(libs.androidx.room.ktx)

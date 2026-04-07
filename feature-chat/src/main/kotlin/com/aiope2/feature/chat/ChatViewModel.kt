@@ -584,7 +584,6 @@ class ChatViewModel @Inject constructor(
     "get_location" -> kotlinx.coroutines.runBlocking {
       val loc = locationProvider.getFreshLocation() ?: locationProvider.getLastLocation()
       if (loc != null) {
-        // Store location data for map rendering
         lastLocationData = LocationData(
           latitude = loc.latitude, longitude = loc.longitude,
           altitude = if (loc.hasAltitude()) loc.altitude else null,
@@ -592,8 +591,10 @@ class ChatViewModel @Inject constructor(
           bearing = if (loc.hasBearing()) loc.bearing.toDouble() else null,
           accuracy = loc.accuracy.toDouble()
         )
-        locationProvider.formatLocation(loc)
-      } else "Location unavailable — check permissions or GPS"
+        val base = locationProvider.formatLocation(loc)
+        val address = locationProvider.reverseGeocode(loc)
+        if (address != null) "$base\n$address" else base
+      } else "Location unavailable -- check permissions or GPS"
     }
     else -> "Unknown tool: $name"
   }

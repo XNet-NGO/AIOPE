@@ -77,9 +77,28 @@ class LocationProvider(private val context: Context) {
     append("Longitude: ${loc.longitude}\n")
     if (loc.hasAltitude()) append("Altitude: ${"%.1f".format(loc.altitude)}m\n")
     if (loc.hasSpeed()) append("Speed: ${"%.1f".format(loc.speed * 3.6)} km/h\n")
-    if (loc.hasBearing()) append("Bearing: ${"%.0f".format(loc.bearing)}°\n")
+    if (loc.hasBearing()) append("Bearing: ${"%.0f".format(loc.bearing)} degrees\n")
     append("Accuracy: ${"%.1f".format(loc.accuracy)}m\n")
     append("Provider: ${loc.provider}\n")
     append("Time: ${java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US).format(loc.time)}")
+  }
+
+  /** Reverse geocode to get address/city */
+  fun reverseGeocode(loc: Location): String? {
+    return try {
+      val geocoder = android.location.Geocoder(context, java.util.Locale.US)
+      val addresses = geocoder.getFromLocation(loc.latitude, loc.longitude, 1)
+      if (!addresses.isNullOrEmpty()) {
+        val addr = addresses[0]
+        buildString {
+          addr.getAddressLine(0)?.let { append("Address: $it\n") }
+            ?: run {
+              addr.locality?.let { append("City: $it\n") }
+              addr.adminArea?.let { append("State: $it\n") }
+              addr.countryName?.let { append("Country: $it\n") }
+            }
+        }.trimEnd()
+      } else null
+    } catch (_: Exception) { null }
   }
 }

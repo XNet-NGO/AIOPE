@@ -201,23 +201,58 @@ class ChatViewModel @Inject constructor(
 
       try {
         val (executor, model) = createClient(com.aiope2.core.network.ModelTask.CHAT)
-        val agent = AIAgent(
-          promptExecutor = executor,
-          systemPrompt = "",
-          llmModel = model,
-          toolRegistry = ToolRegistry { tools(this@ChatViewModel.tools) }
-        )
+        val p = providerStore.getActive()
+        val mc = p.activeModelConfig()
+        val useTools = mc.toolsOverride == true
 
-        val result = agent.run(text)
+        if (useTools) {
+          // Koog agent with tool loop (non-streaming)
+          val agent = AIAgent(
+            promptExecutor = executor,
+            systemPrompt = "",
+            llmModel = model,
+            toolRegistry = ToolRegistry { tools(this@ChatViewModel.tools) }
+          )
+          val result = agent.run(text)
+          val updated = _messages.value.toMutableList()
+          updated[updated.lastIndex] = updated.last().copy(content = result)
+          _messages.value = updated
+        } else {
+          // Direct streaming via openai-kotlin
+          val openai = com.aallam.openai.client.OpenAI(com.aallam.openai.client.OpenAIConfig(
+            token = p.apiKey.ifBlank { "unused" },
+            host = com.aallam.openai.client.OpenAIHost(p.effectiveApiBase())
+          ))
+          val sysPrompt = mc.systemPromptOverride
+          val apiMessages = buildList {
+            if (!sysPrompt.isNullOrBlank()) add(com.aallam.openai.api.chat.ChatMessage(role = com.aallam.openai.api.chat.ChatRole.System, content = sysPrompt))
+            _messages.value.dropLast(1).forEach { msg ->
+              add(com.aallam.openai.api.chat.ChatMessage(
+                role = when (msg.role) { Role.USER -> com.aallam.openai.api.chat.ChatRole.User; Role.ASSISTANT -> com.aallam.openai.api.chat.ChatRole.Assistant; else -> com.aallam.openai.api.chat.ChatRole.User },
+                content = msg.content
+              ))
+            }
+          }
+          val request = com.aallam.openai.api.chat.ChatCompletionRequest(
+            model = com.aallam.openai.api.model.ModelId(p.selectedModelId),
+            messages = apiMessages
+          )
+          val sb = StringBuilder()
+          openai.chatCompletions(request).collect { chunk ->
+            chunk.choices.firstOrNull()?.delta?.content?.let { delta ->
+              sb.append(delta)
+              val updated = _messages.value.toMutableList()
+              updated[updated.lastIndex] = updated.last().copy(content = sb.toString())
+              _messages.value = updated
+            }
+          }
+        }
 
-        val updated = _messages.value.toMutableList()
-        updated[updated.lastIndex] = updated.last().copy(content = result)
-        _messages.value = updated
-
-        // Persist
+        // Persist final message
+        val finalMsg = _messages.value.last()
         chatDao.insertMessage(MessageEntity(
-          id = updated.last().id, conversationId = conversationId,
-          role = Role.ASSISTANT.value, content = result
+          id = finalMsg.id, conversationId = conversationId,
+          role = Role.ASSISTANT.value, content = finalMsg.content
         ))
         if (_messages.value.size <= 2) {
           chatDao.updateConversation(conversationId, text.take(50))

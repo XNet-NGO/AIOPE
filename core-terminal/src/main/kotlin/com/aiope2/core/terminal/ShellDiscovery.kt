@@ -89,6 +89,7 @@ object ShellDiscovery {
         bind("/proc/self/fd", "/dev/fd"); bind(filesDir)
 
         val tmpDir = File(rootfs, "tmp").also { it.mkdirs() }
+        File(rootfs, "root").mkdirs()
         bind(tmpDir.absolutePath, "/dev/shm")
         bind("/proc/self/fd/0", "/dev/stdin")
         bind("/proc/self/fd/1", "/dev/stdout")
@@ -99,12 +100,12 @@ object ShellDiscovery {
 
         args.addAll(listOf(
             "-r", rootfs, "-0", "--link2symlink", "--sysvipc", "-L",
-            "-w", "/",
+            "-w", "/root",
             "/usr/bin/env",
             "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
             "HOME=/root", "USER=root", "TERM=xterm-256color",
             "TMPDIR=/tmp", "LANG=C.UTF-8", "LC_ALL=C.UTF-8",
-            "/bin/bash", "--login", "-c", "cd /root 2>/dev/null; exec /bin/bash --login"
+            "/bin/bash", "--login"
         ))
         return args.toTypedArray()
     }

@@ -463,6 +463,19 @@ class ChatViewModel @Inject constructor(
         }
         val summaryMsg = ChatMessage(role = Role.SYSTEM, content = sb.toString())
         _messages.value = listOf(summaryMsg) + remaining
+
+        // Persist: delete old messages, save summary + remaining
+        chatDao.deleteMessagesAfter(conversationId, 0) // delete all messages in this conversation
+        chatDao.insertMessage(MessageEntity(
+          id = summaryMsg.id, conversationId = conversationId,
+          role = summaryMsg.role.value, content = summaryMsg.content
+        ))
+        remaining.forEach { msg ->
+          chatDao.insertMessage(MessageEntity(
+            id = msg.id, conversationId = conversationId,
+            role = msg.role.value, content = msg.content
+          ))
+        }
       } catch (_: kotlinx.coroutines.CancellationException) { /* stopped */ } catch (e: Exception) {
         // Don't lose messages on failure
       } finally { _isStreaming.value = false }

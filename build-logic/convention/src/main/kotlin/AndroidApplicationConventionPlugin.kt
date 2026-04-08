@@ -9,7 +9,7 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
     with(target) {
       pluginManager.apply("com.android.application")
       extensions.configure<ApplicationExtension> {
-        compileSdk = 35
+        compileSdk = 36
         defaultConfig { minSdk = 26 }
       }
       configureKotlinAndroid()

@@ -3,7 +3,6 @@ package com.aiope2.feature.chat
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.widget.TextView
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.*
@@ -18,13 +17,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import io.noties.markwon.Markwon
+import com.mikepenz.markdown.m3.Markdown
 
 @Composable
 fun MessageBubble(
@@ -36,16 +34,9 @@ fun MessageBubble(
 ) {
   val isUser = message.role == Role.USER
   val ctx = LocalContext.current
-  val markwon = remember {
-    Markwon.builder(ctx)
-      .usePlugin(io.noties.markwon.ext.strikethrough.StrikethroughPlugin.create())
-      .usePlugin(io.noties.markwon.ext.tables.TablePlugin.create(ctx))
-      .build()
-  }
   var showMenu by remember { mutableStateOf(false) }
 
   if (isUser) {
-    // User bubble — right aligned, simple
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
       Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.primary,
         modifier = Modifier.widthIn(max = 320.dp)) {
@@ -75,13 +66,11 @@ fun MessageBubble(
       }
     }
   } else {
-    // Assistant bubble — left aligned, with reasoning + tool calls + content
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
       Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceVariant,
         modifier = Modifier.widthIn(max = 340.dp)) {
         Column(Modifier.padding(bottom = 4.dp)) {
 
-          // Reasoning blocks (each collapsible)
           if (message.reasoning.isNotEmpty()) {
             message.reasoning.forEachIndexed { idx, block ->
               val isLast = idx == message.reasoning.lastIndex
@@ -90,12 +79,10 @@ fun MessageBubble(
             }
           }
 
-          // Tool calls + results (interleaved)
           if (message.toolCalls.isNotEmpty()) {
             ToolCallsBlock(message.toolCalls, message.toolResults)
           }
 
-          // Location map card — only render when done streaming to avoid stutter
           if (message.locationData != null && message.content.isNotBlank()) {
             key(message.locationData) {
               com.aiope2.feature.chat.location.LocationCard(
@@ -106,34 +93,13 @@ fun MessageBubble(
             }
           }
 
-          // Main content (markdown)
           if (message.content.isNotBlank()) {
-            val textColor = MaterialTheme.colorScheme.onSurface.toArgb()
-            AndroidView(
-              factory = { context ->
-                TextView(context).apply {
-                  setTextColor(textColor); textSize = 14f
-                  setTextIsSelectable(true); setPadding(32, 16, 32, 8)
-                }
-              },
-              update = { tv ->
-              // Strip LaTeX and render markdown
-              val cleaned = message.content
-                .replace(Regex("\\$\\\\checkmark\\$"), "\u2713")
-                .replace(Regex("\\$\\\\triangle\\$"), "\u25B3")
-                .replace(Regex("\\$\\\\text\\{([^}]*)\\}\\$"), "$1")
-                .replace(Regex("\\$\\\\approx\\s*([^$]*)\\$"), "\u2248$1")
-                .replace(Regex("\\$([^$]+)\\$"), "$1")
-                .replace("\u00B0", " deg")
-                .replace("\u00B1", "+/-")
-                .let { s -> s.filter { c -> c == '\n' || c == '\r' || c == '\t' || (c.code in 0x20..0x024F) || (c.code in 0x2000..0x206F) || (c.code in 0x2190..0x21FF) || (c.code in 0x2200..0x22FF) || c == '\u2248' || c == '\u2713' || c == '\u25B3' } }
-                .replace(Regex("\\*\\*\\s*\\*\\*"), "")  // empty bold
-                .replace(Regex("\\*\\s*\\*"), "")  // empty italic
-                .replace(Regex("^\\s*\n"), "\n")  // blank lines from stripped content
-              markwon.setMarkdown(tv, cleaned)
-            },
-              modifier = Modifier.fillMaxWidth()
-            )
+            SelectionContainer {
+              Markdown(
+                content = message.content,
+                modifier = Modifier.padding(12.dp, 8.dp, 12.dp, 4.dp)
+              )
+            }
           }
 
           MessageMenu(message, showMenu, { showMenu = it }, ctx, onEdit, onRetry, onCompact, onFork)
@@ -146,10 +112,7 @@ fun MessageBubble(
 @Composable
 private fun ReasoningBlock(reasoning: String, isStreaming: Boolean) {
   var expanded by remember { mutableStateOf(isStreaming) }
-
-  // Auto-collapse when streaming finishes
   LaunchedEffect(isStreaming) { if (!isStreaming) expanded = false }
-
   Surface(
     modifier = Modifier.fillMaxWidth().padding(8.dp, 8.dp, 8.dp, 0.dp).clickable { expanded = !expanded },
     shape = RoundedCornerShape(8.dp),
@@ -189,7 +152,6 @@ private fun LoadingDots() {
 private fun ToolCallsBlock(calls: List<String>, results: List<String>) {
   Column(Modifier.fillMaxWidth().padding(8.dp, 4.dp, 8.dp, 0.dp)) {
     for (i in calls.indices) {
-      // Tool call chip
       Surface(
         shape = RoundedCornerShape(6.dp),
         color = Color(0xFF1A3A1A),
@@ -198,7 +160,6 @@ private fun ToolCallsBlock(calls: List<String>, results: List<String>) {
         Text("${calls[i]}", fontSize = 12.sp, color = Color(0xFF88FF88),
           modifier = Modifier.padding(8.dp, 4.dp), fontFamily = FontFamily.Monospace)
       }
-      // Tool result (if available)
       if (i < results.size) {
         var resultExpanded by remember { mutableStateOf(false) }
         val result = results[i]

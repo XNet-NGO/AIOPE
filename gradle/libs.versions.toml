@@ -20,7 +20,7 @@ kotlin = "2.3.0"
 kotlinxCoroutines = "1.10.1"
 ksp = "2.3.6"
 okhttp = "4.12.0"
-markwon = "4.6.2"
+markdown-renderer = "0.39.2"
 spotless = "6.7.0"
 
 [libraries]
@@ -56,9 +56,8 @@ okhttp-logging = { group = "com.squareup.okhttp3", name = "logging-interceptor",
 
 
 # markdown
-markwon-core = { group = "io.noties.markwon", name = "core", version.ref = "markwon" }
-markwon-ext-strikethrough = { group = "io.noties.markwon", name = "ext-strikethrough", version.ref = "markwon" }
-markwon-syntax-highlight = { group = "io.noties.markwon", name = "syntax-highlight", version.ref = "markwon" }
+markdown-renderer-m3 = { group = "com.mikepenz", name = "multiplatform-markdown-renderer-m3", version.ref = "markdown-renderer" }
+markdown-renderer-code = { group = "com.mikepenz", name = "multiplatform-markdown-renderer-code", version.ref = "markdown-renderer" }
 
 # Dependencies of the included build-logic
 android-gradlePlugin = { group = "com.android.tools.build", name = "gradle", version.ref = "androidGradlePlugin" }

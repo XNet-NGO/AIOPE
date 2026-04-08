@@ -19,9 +19,8 @@ dependencies {
   implementation(libs.androidx.lifecycle.viewModelCompose)
 
   // markdown
-  implementation(libs.markwon.core)
-  implementation(libs.markwon.ext.strikethrough)
-  implementation("io.noties.markwon:ext-tables:4.6.2")
+  implementation(libs.markdown.renderer.m3)
+  implementation(libs.markdown.renderer.code)
 
   // location
   implementation("com.google.android.gms:play-services-location:21.3.0")

@@ -63,7 +63,7 @@ fun SplashScreen(onFinished: () -> Unit) {
       }
 
       // Center hex icon (matches app icon)
-      val iconSize = 38f * scale
+      val iconSize = 52f * scale
       fun hexPath(ccx: Float, ccy: Float, s: Float): Path {
         val p = Path()
         for (j in 0..5) {

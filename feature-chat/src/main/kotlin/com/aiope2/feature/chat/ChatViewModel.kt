@@ -584,14 +584,15 @@ class ChatViewModel @Inject constructor(
     val areaFilter = if (lat != null && lng != null) "(around:$radius,$lat,$lng)" else ""
     if (areaFilter.isEmpty()) return "No results. Call get_location first to set search area, then try again."
 
-    val overpassQuery = """[out:json][timeout:10];(node${tagFilter}${areaFilter};way${tagFilter}${areaFilter};);out center 5;"""
+    val overpassQuery = """[out:json][timeout:25];(node${tagFilter}${areaFilter};way${tagFilter}${areaFilter};);out center 5;"""
     val url = "https://overpass-api.de/api/interpreter"
     val conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
     conn.requestMethod = "POST"
     conn.doOutput = true
-    conn.connectTimeout = 10000
-    conn.readTimeout = 10000
-    conn.outputStream.write("data=$overpassQuery".toByteArray(Charsets.UTF_8))
+    conn.connectTimeout = 30000
+    conn.readTimeout = 30000
+    conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
+    conn.outputStream.write("data=${java.net.URLEncoder.encode(overpassQuery, "UTF-8")}".toByteArray(Charsets.UTF_8))
 
     if (conn.responseCode !in 200..299) return "Overpass API error: HTTP ${conn.responseCode}"
     val json = org.json.JSONObject(conn.inputStream.bufferedReader(Charsets.UTF_8).readText())

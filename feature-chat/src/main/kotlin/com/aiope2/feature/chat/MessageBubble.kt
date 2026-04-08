@@ -27,6 +27,7 @@ import com.mikepenz.markdown.m3.Markdown
 @Composable
 fun MessageBubble(
   message: ChatMessage,
+  isLastStreaming: Boolean = false,
   onEdit: (() -> Unit)? = null,
   onRetry: (() -> Unit)? = null,
   onCompact: (() -> Unit)? = null,
@@ -94,11 +95,16 @@ fun MessageBubble(
           }
 
           if (message.content.isNotBlank()) {
-            SelectionContainer {
-              Markdown(
-                content = message.content,
-                modifier = Modifier.padding(12.dp, 8.dp, 12.dp, 4.dp)
-              )
+            if (isLastStreaming) {
+              Text(message.content, modifier = Modifier.padding(12.dp, 8.dp, 12.dp, 4.dp),
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+            } else {
+              SelectionContainer {
+                Markdown(
+                  content = message.content,
+                  modifier = Modifier.padding(12.dp, 8.dp, 12.dp, 4.dp)
+                )
+              }
             }
           }
 

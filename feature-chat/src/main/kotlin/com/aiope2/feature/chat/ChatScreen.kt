@@ -152,7 +152,7 @@ private fun ChatContent(
     if (messages.isEmpty()) {
       EmptyState(onSend = onSend, modifier = Modifier.weight(1f))
     } else {
-      MessageList(messages = messages,
+      MessageList(messages = messages, isStreaming = isStreaming,
         onEdit = { idx -> onEditMessage(messages[idx].content, idx) },
         onRetry = { idx -> onRetry(idx) },
         onCompact = { idx -> onCompact(idx) },
@@ -192,7 +192,7 @@ private fun EmptyState(onSend: (String, List<String>) -> Unit, modifier: Modifie
 // ── Message list ──
 
 @Composable
-private fun MessageList(messages: List<ChatMessage>, onEdit: ((Int) -> Unit)? = null, onRetry: ((Int) -> Unit)? = null, onCompact: ((Int) -> Unit)? = null, onFork: ((Int) -> Unit)? = null, modifier: Modifier = Modifier) {
+private fun MessageList(messages: List<ChatMessage>, isStreaming: Boolean = false, onEdit: ((Int) -> Unit)? = null, onRetry: ((Int) -> Unit)? = null, onCompact: ((Int) -> Unit)? = null, onFork: ((Int) -> Unit)? = null, modifier: Modifier = Modifier) {
   val listState = rememberLazyListState()
   val scope = rememberCoroutineScope()
   LaunchedEffect(messages.size) {
@@ -203,6 +203,7 @@ private fun MessageList(messages: List<ChatMessage>, onEdit: ((Int) -> Unit)? = 
       val msg = messages[idx]
       MessageBubble(
         message = msg,
+        isLastStreaming = isStreaming && idx == messages.lastIndex && msg.role == Role.ASSISTANT,
         onEdit = if (msg.role == Role.USER) {{ onEdit?.invoke(idx) }} else null,
         onRetry = if (msg.role == Role.ASSISTANT) {{ onRetry?.invoke(idx) }} else null,
         onCompact = { onCompact?.invoke(idx) },

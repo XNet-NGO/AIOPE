@@ -100,6 +100,7 @@ fun MessageBubble(
 
           if (message.content.isNotBlank()) {
             val textColor = MaterialTheme.colorScheme.onSurface.toArgb()
+            val content = message.content
             AndroidView(
               factory = { context ->
                 AFMInitializer.init(context, null, null, null)
@@ -109,19 +110,14 @@ fun MessageBubble(
                   textSize = 14f
                   setTextIsSelectable(true)
                   setPadding(32, 16, 32, 8)
+                  tag = ""
                 }
               },
               update = { tv ->
-                if (isLastStreaming) {
-                  if (tv.tag == null) {
-                    tv.tag = "streaming"
-                    tv.startPrinting(message.content)
-                  } else {
-                    tv.appendPrinting(message.content, false)
-                  }
-                } else {
-                  tv.tag = null
-                  tv.setMarkdownText(message.content)
+                val prev = tv.tag as? String ?: ""
+                if (content != prev) {
+                  tv.tag = content
+                  tv.setMarkdownText(content)
                 }
               },
               modifier = Modifier.fillMaxWidth()

@@ -585,48 +585,60 @@ class ChatViewModel @Inject constructor(
     if (areaFilter.isEmpty()) return "No results. Call get_location first to set search area, then try again."
 
     val overpassQuery = """[out:json][timeout:25];(node${tagFilter}${areaFilter};way${tagFilter}${areaFilter};);out center 5;"""
-    val url = "https://overpass-api.de/api/interpreter"
-    val conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
-    conn.requestMethod = "POST"
-    conn.doOutput = true
-    conn.connectTimeout = 30000
-    conn.readTimeout = 30000
-    conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
-    conn.outputStream.write("data=${java.net.URLEncoder.encode(overpassQuery, "UTF-8")}".toByteArray(Charsets.UTF_8))
+    // Try multiple Overpass endpoints
+    val endpoints = listOf(
+      "https://overpass-api.de/api/interpreter",
+      "https://overpass.kumi.systems/api/interpreter"
+    )
+    var lastError = ""
+    for (ep in endpoints) {
+      try {
+        val conn = java.net.URL(ep).openConnection() as java.net.HttpURLConnection
+        conn.requestMethod = "POST"
+        conn.doOutput = true
+        conn.connectTimeout = 30000
+        conn.readTimeout = 30000
+        conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
+        conn.outputStream.write("data=${java.net.URLEncoder.encode(overpassQuery, "UTF-8")}".toByteArray(Charsets.UTF_8))
 
-    if (conn.responseCode !in 200..299) return "Overpass API error: HTTP ${conn.responseCode}"
-    val json = org.json.JSONObject(conn.inputStream.bufferedReader(Charsets.UTF_8).readText())
-    val elements = json.optJSONArray("elements") ?: return "No results found for: $query"
-    if (elements.length() == 0) return "No results found for: $query"
+        if (conn.responseCode == 429) { lastError = "Rate limited"; continue }
+        if (conn.responseCode !in 200..299) { lastError = "HTTP ${conn.responseCode}"; continue }
+        val json = org.json.JSONObject(conn.inputStream.bufferedReader(Charsets.UTF_8).readText())
+        val elements = json.optJSONArray("elements") ?: return "No results found for: $query"
+        if (elements.length() == 0) return "No results found for: $query"
 
-    val results = (0 until minOf(elements.length(), 5)).map { i ->
-      val el = elements.getJSONObject(i)
-      val tags = el.optJSONObject("tags") ?: org.json.JSONObject()
-      val elLat = el.optDouble("lat", el.optJSONObject("center")?.optDouble("lat") ?: 0.0)
-      val elLng = el.optDouble("lon", el.optJSONObject("center")?.optDouble("lon") ?: 0.0)
-      val name = tags.optString("name", "Unnamed")
-      val addr = listOfNotNull(
-        tags.optString("addr:housenumber", "").ifBlank { null },
-        tags.optString("addr:street", "").ifBlank { null },
-        tags.optString("addr:city", "").ifBlank { null }
-      ).joinToString(" ").ifBlank { null }
-      val phone = tags.optString("phone", "").ifBlank { null }
-      val hours = tags.optString("opening_hours", "").ifBlank { null }
-      buildString {
-        append("${i + 1}. $name")
-        addr?.let { append("\n   Address: $it") }
-        phone?.let { append("\n   Phone: $it") }
-        hours?.let { append("\n   Hours: $it") }
-        append("\n   Lat: $elLat, Lng: $elLng")
+        val results = (0 until minOf(elements.length(), 5)).map { i ->
+          val el = elements.getJSONObject(i)
+          val tags = el.optJSONObject("tags") ?: org.json.JSONObject()
+          val elLat = el.optDouble("lat", el.optJSONObject("center")?.optDouble("lat") ?: 0.0)
+          val elLng = el.optDouble("lon", el.optJSONObject("center")?.optDouble("lon") ?: 0.0)
+          val name = tags.optString("name", "Unnamed")
+          val addr = listOfNotNull(
+            tags.optString("addr:housenumber", "").ifBlank { null },
+            tags.optString("addr:street", "").ifBlank { null },
+            tags.optString("addr:city", "").ifBlank { null }
+          ).joinToString(" ").ifBlank { null }
+          val phone = tags.optString("phone", "").ifBlank { null }
+          val hours = tags.optString("opening_hours", "").ifBlank { null }
+          buildString {
+            append("${i + 1}. $name")
+            addr?.let { append("\n   Address: $it") }
+            phone?.let { append("\n   Phone: $it") }
+            hours?.let { append("\n   Hours: $it") }
+            append("\n   Lat: $elLat, Lng: $elLng")
+          }
+        }
+
+        val first = elements.getJSONObject(0)
+        val fLat = first.optDouble("lat", first.optJSONObject("center")?.optDouble("lat") ?: 0.0)
+        val fLng = first.optDouble("lon", first.optJSONObject("center")?.optDouble("lon") ?: 0.0)
+        lastLocationData = LocationData(latitude = fLat, longitude = fLng)
+        return results.joinToString("\n")
+      } catch (e: Exception) {
+        lastError = e.message ?: "unknown error"
+        continue
       }
     }
-
-    // Store first result for map
-    val first = elements.getJSONObject(0)
-    val fLat = first.optDouble("lat", first.optJSONObject("center")?.optDouble("lat") ?: 0.0)
-    val fLng = first.optDouble("lon", first.optJSONObject("center")?.optDouble("lon") ?: 0.0)
-    lastLocationData = LocationData(latitude = fLat, longitude = fLng)
-
-    return results.joinToString("\n")
+    return "Search unavailable right now ($lastError). Do NOT retry — tell the user to try again in a minute."
   }
 }

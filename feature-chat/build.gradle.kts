@@ -25,6 +25,9 @@ dependencies {
   implementation("com.vdurmont:emoji-java:5.1.1")
   implementation("androidx.recyclerview:recyclerview:1.3.2")
   implementation(libs.androidx.appcompat)
+  implementation("ru.noties:jlatexmath-android:0.2.0")
+  implementation("ru.noties:jlatexmath-android-font-cyrillic:0.2.0")
+  implementation("ru.noties:jlatexmath-android-font-greek:0.2.0")
 
   // location
   implementation("com.google.android.gms:play-services-location:21.3.0")

@@ -61,6 +61,23 @@ fun SplashScreen(onFinished: () -> Unit) {
         path.close()
         drawPath(path, color.copy(alpha = alpha), style = Stroke(width = (3f - frac * 1.5f).coerceAtLeast(1f)))
       }
+
+      // Center hex icon (matches app icon)
+      val iconSize = 38f * scale
+      fun hexPath(ccx: Float, ccy: Float, s: Float): Path {
+        val p = Path()
+        for (j in 0..5) {
+          val a = Math.toRadians(60.0 * j - 30)
+          val px = ccx + (s * cos(a)).toFloat()
+          val py = ccy + (s * sin(a)).toFloat()
+          if (j == 0) p.moveTo(px, py) else p.lineTo(px, py)
+        }
+        p.close()
+        return p
+      }
+      drawPath(hexPath(cx, cy, iconSize), Color.White)
+      drawPath(hexPath(cx, cy, iconSize * 0.78f), Color(0xFF6200EE))
+      drawPath(hexPath(cx, cy, iconSize * 0.38f), Color(0xFF03DAC5))
     }
   }
 }

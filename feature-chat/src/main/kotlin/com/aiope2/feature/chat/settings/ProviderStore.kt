@@ -83,4 +83,7 @@ class ProviderStore @Inject constructor(@ApplicationContext ctx: Context) {
     val arr = JSONArray(); list.forEach { arr.put(it.toJson()) }
     prefs.edit().putString("profiles", arr.toString()).apply()
   }
+
+  fun getGeoapifyKey(): String = prefs.getString("geoapify_key", "") ?: ""
+  fun setGeoapifyKey(key: String) = prefs.edit().putString("geoapify_key", key).apply()
 }

@@ -537,108 +537,67 @@ class ChatViewModel @Inject constructor(
               val line = addr.getAddressLine(0) ?: "${addr.locality ?: ""}, ${addr.adminArea ?: ""}, ${addr.countryName ?: ""}"
               "${i + 1}. $line\n   Lat: ${addr.latitude}, Lng: ${addr.longitude}"
             }.joinToString("\n")
-          } else searchOverpass(query)
-        } else searchOverpass(query)
+          } else searchPlaces(query)
+        } else searchPlaces(query)
       } catch (e: Exception) {
-        try { searchOverpass(query) } catch (e2: Exception) { "Error: ${e2.message}" }
+        try { searchPlaces(query) } catch (e2: Exception) { "Error: ${e2.message}" }
       }
     }
     else -> "Unknown tool: $name"
   }
 
-  private fun searchOverpass(query: String): String {
-    // Use last known location as center, or default to a wide search
+  private fun searchPlaces(query: String): String {
+    val apiKey = providerStore.getGeoapifyKey()
+    if (apiKey.isBlank()) return "Geoapify API key not set. Add it in Settings to enable place search."
+
     val lat = lastLocationData?.latitude
     val lng = lastLocationData?.longitude
-    val radius = 3000 // 3km
+    if (lat == null || lng == null) return "No location set. Call get_location first, then try again."
 
-    // Map common terms to OSM tags
-    val q = query.lowercase().trim()
-      .replace(Regex("\\s*(near|in|around|close to|closest to|nearest to)\\s+.*$"), "").trim()
-    val tagFilter = when {
-      q.contains("gas") || q.contains("fuel") -> """["amenity"="fuel"]"""
-      q.contains("pharmacy") || q.contains("drug") -> """["amenity"="pharmacy"]"""
-      q.contains("hospital") || q.contains("emergency") -> """["amenity"="hospital"]"""
-      q.contains("school") -> """["amenity"="school"]"""
-      q.contains("bank") || q.contains("atm") -> """["amenity"="bank"]"""
-      q.contains("parking") -> """["amenity"="parking"]"""
-      q.contains("hotel") || q.contains("motel") -> """["tourism"="hotel"]"""
-      q.contains("grocery") || q.contains("supermarket") -> """["shop"="supermarket"]"""
-      q.contains("coffee") || q.contains("cafe") -> """["amenity"="cafe"]"""
-      q.contains("pizza") -> """["amenity"="restaurant"]["cuisine"~"pizza",i]"""
-      q.contains("restaurant") || q.contains("food") || q.contains("eat") -> """["amenity"="restaurant"]"""
-      q.contains("bar") || q.contains("pub") -> """["amenity"="bar"]"""
-      q.contains("park") -> """["leisure"="park"]"""
-      q.contains("gym") || q.contains("fitness") -> """["leisure"="fitness_centre"]"""
-      q.contains("library") -> """["amenity"="library"]"""
-      q.contains("church") -> """["amenity"="place_of_worship"]"""
-      q.contains("police") -> """["amenity"="police"]"""
-      q.contains("post office") || q.contains("mail") -> """["amenity"="post_office"]"""
-      else -> {
-        // Try name search — works for brand names like "Starbucks", "McDonald's"
-        val escaped = q.replace("'", "").replace("\"", "")
-        """["name"~"$escaped",i]"""
+    val q = query.trim().replace(Regex("\\s*(near|in|around|close to|closest to|nearest to)\\s+.*$", RegexOption.IGNORE_CASE), "").trim()
+    val encoded = java.net.URLEncoder.encode(q, "UTF-8")
+    val url = "https://api.geoapify.com/v2/places?categories=commercial,catering,service,entertainment,leisure,sport,tourism,accommodation,education,healthcare&conditions=named&filter=circle:$lng,$lat,5000&bias=proximity:$lng,$lat&limit=5&name=$encoded&apiKey=$apiKey"
+
+    val conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+    conn.connectTimeout = 15000
+    conn.readTimeout = 15000
+    if (conn.responseCode !in 200..299) {
+      // Fallback: try text search endpoint
+      val url2 = "https://api.geoapify.com/v1/geocode/search?text=${java.net.URLEncoder.encode(query, "UTF-8")}&bias=proximity:$lng,$lat&limit=5&apiKey=$apiKey"
+      val conn2 = java.net.URL(url2).openConnection() as java.net.HttpURLConnection
+      conn2.connectTimeout = 15000
+      conn2.readTimeout = 15000
+      if (conn2.responseCode !in 200..299) return "Search error: HTTP ${conn2.responseCode}"
+      return parseGeoapifyResults(conn2.inputStream.bufferedReader(Charsets.UTF_8).readText(), query)
+    }
+    return parseGeoapifyResults(conn.inputStream.bufferedReader(Charsets.UTF_8).readText(), query)
+  }
+
+  private fun parseGeoapifyResults(body: String, query: String): String {
+    val json = org.json.JSONObject(body)
+    val features = json.optJSONArray("features")
+    if (features == null || features.length() == 0) return "No results found for: $query"
+
+    val results = (0 until minOf(features.length(), 5)).map { i ->
+      val props = features.getJSONObject(i).getJSONObject("properties")
+      val name = props.optString("name", "").ifBlank { props.optString("formatted", "Unnamed") }
+      val addr = props.optString("formatted", "").ifBlank { null }
+      val phone = props.optString("contact:phone", "").ifBlank { props.optString("phone", "").ifBlank { null } }
+      val hours = props.optString("opening_hours", "").ifBlank { null }
+      val cat = props.optString("categories", "").ifBlank { null }
+      val pLat = props.optDouble("lat", 0.0)
+      val pLng = props.optDouble("lon", 0.0)
+      buildString {
+        append("${i + 1}. $name")
+        if (addr != null && addr != name) append("\n   Address: $addr")
+        phone?.let { append("\n   Phone: $it") }
+        hours?.let { append("\n   Hours: $it") }
+        append("\n   Lat: $pLat, Lng: $pLng")
       }
     }
 
-    val areaFilter = if (lat != null && lng != null) "(around:$radius,$lat,$lng)" else ""
-    if (areaFilter.isEmpty()) return "No results. Call get_location first to set search area, then try again."
-
-    val overpassQuery = """[out:json][timeout:25];(node${tagFilter}${areaFilter};way${tagFilter}${areaFilter};);out center 5;"""
-    // Try multiple Overpass endpoints
-    val endpoints = listOf(
-      "https://overpass-api.de/api/interpreter",
-      "https://overpass.kumi.systems/api/interpreter"
-    )
-    var lastError = ""
-    for (ep in endpoints) {
-      try {
-        val conn = java.net.URL(ep).openConnection() as java.net.HttpURLConnection
-        conn.requestMethod = "POST"
-        conn.doOutput = true
-        conn.connectTimeout = 30000
-        conn.readTimeout = 30000
-        conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
-        conn.outputStream.write("data=${java.net.URLEncoder.encode(overpassQuery, "UTF-8")}".toByteArray(Charsets.UTF_8))
-
-        if (conn.responseCode == 429) { lastError = "Rate limited"; continue }
-        if (conn.responseCode !in 200..299) { lastError = "HTTP ${conn.responseCode}"; continue }
-        val json = org.json.JSONObject(conn.inputStream.bufferedReader(Charsets.UTF_8).readText())
-        val elements = json.optJSONArray("elements") ?: return "No results found for: $query"
-        if (elements.length() == 0) return "No results found for: $query"
-
-        val results = (0 until minOf(elements.length(), 5)).map { i ->
-          val el = elements.getJSONObject(i)
-          val tags = el.optJSONObject("tags") ?: org.json.JSONObject()
-          val elLat = el.optDouble("lat", el.optJSONObject("center")?.optDouble("lat") ?: 0.0)
-          val elLng = el.optDouble("lon", el.optJSONObject("center")?.optDouble("lon") ?: 0.0)
-          val name = tags.optString("name", "Unnamed")
-          val addr = listOfNotNull(
-            tags.optString("addr:housenumber", "").ifBlank { null },
-            tags.optString("addr:street", "").ifBlank { null },
-            tags.optString("addr:city", "").ifBlank { null }
-          ).joinToString(" ").ifBlank { null }
-          val phone = tags.optString("phone", "").ifBlank { null }
-          val hours = tags.optString("opening_hours", "").ifBlank { null }
-          buildString {
-            append("${i + 1}. $name")
-            addr?.let { append("\n   Address: $it") }
-            phone?.let { append("\n   Phone: $it") }
-            hours?.let { append("\n   Hours: $it") }
-            append("\n   Lat: $elLat, Lng: $elLng")
-          }
-        }
-
-        val first = elements.getJSONObject(0)
-        val fLat = first.optDouble("lat", first.optJSONObject("center")?.optDouble("lat") ?: 0.0)
-        val fLng = first.optDouble("lon", first.optJSONObject("center")?.optDouble("lon") ?: 0.0)
-        lastLocationData = LocationData(latitude = fLat, longitude = fLng)
-        return results.joinToString("\n")
-      } catch (e: Exception) {
-        lastError = e.message ?: "unknown error"
-        continue
-      }
-    }
-    return "Search unavailable right now ($lastError). Do NOT retry — tell the user to try again in a minute."
+    val firstProps = features.getJSONObject(0).getJSONObject("properties")
+    lastLocationData = LocationData(latitude = firstProps.optDouble("lat", 0.0), longitude = firstProps.optDouble("lon", 0.0))
+    return results.joinToString("\n")
   }
 }

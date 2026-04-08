@@ -43,7 +43,7 @@ fun SettingsScreen(providerStore: ProviderStore, onBack: () -> Unit) {
   fun refresh() { profiles = providerStore.getAll(); activeId = providerStore.getActive().id }
 
   when (screen) {
-    "list" -> ProfileList(profiles, activeId,
+    "list" -> ProfileList(profiles, activeId, providerStore,
       onSelect = { providerStore.setActive(it.id); activeId = it.id },
       onEdit = { editId = it.id; screen = "edit" },
       onAdd = { screen = "pick" }, onTasks = { screen = "tasks" }, onBack = onBack)
@@ -65,7 +65,7 @@ fun SettingsScreen(providerStore: ProviderStore, onBack: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-private fun ProfileList(profiles: List<ProviderProfile>, activeId: String,
+private fun ProfileList(profiles: List<ProviderProfile>, activeId: String, providerStore: ProviderStore,
   onSelect: (ProviderProfile) -> Unit, onEdit: (ProviderProfile) -> Unit, onAdd: () -> Unit, onTasks: () -> Unit, onBack: () -> Unit) {
   Scaffold(topBar = { TopAppBar(title = { Text("Providers") },
     navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
@@ -125,6 +125,22 @@ private fun ProfileList(profiles: List<ProviderProfile>, activeId: String,
             ) {
               Text(if (running.value) "Deploying..." else if (installed.value) "Redeploy" else "Deploy")
             }
+          }
+        )
+        HorizontalDivider()
+      }
+      item {
+        val geoKey = remember { mutableStateOf(providerStore.getGeoapifyKey()) }
+        ListItem(
+          headlineContent = { Text("Geoapify API Key") },
+          supportingContent = {
+            androidx.compose.material3.OutlinedTextField(
+              value = geoKey.value, onValueChange = { geoKey.value = it; providerStore.setGeoapifyKey(it) },
+              placeholder = { Text("Enter Geoapify key for place search") },
+              singleLine = true,
+              textStyle = MaterialTheme.typography.bodySmall,
+              modifier = Modifier.fillMaxWidth()
+            )
           }
         )
         HorizontalDivider()

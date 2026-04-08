@@ -35,9 +35,10 @@ fun SplashScreen(onFinished: () -> Unit) {
     Canvas(Modifier.size(280.dp)) {
       val cx = size.width / 2f
       val cy = size.height / 2f
+      val scale = size.width / 280f  // scale factor for density
       val hexCount = 18
-      val hexSize = 28f
-      val spiralSpacing = 42f
+      val hexSize = 28f * scale
+      val spiralSpacing = 42f * scale
 
       for (i in 0 until hexCount) {
         val frac = i.toFloat() / hexCount

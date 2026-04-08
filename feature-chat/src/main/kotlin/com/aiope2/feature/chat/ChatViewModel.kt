@@ -483,7 +483,8 @@ class ChatViewModel @Inject constructor(
     StreamingOrchestrator.ToolDef("read_file", "Read file contents", org.json.JSONObject("""{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}""")),
     StreamingOrchestrator.ToolDef("write_file", "Write file", org.json.JSONObject("""{"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"}},"required":["path","content"]}""")),
     StreamingOrchestrator.ToolDef("list_directory", "List directory", org.json.JSONObject("""{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}""")),
-    StreamingOrchestrator.ToolDef("get_location", "Get the device's current GPS location with high accuracy.", org.json.JSONObject("""{"type":"object","properties":{}}"""))
+    StreamingOrchestrator.ToolDef("get_location", "Get the device's current GPS location with high accuracy.", org.json.JSONObject("""{"type":"object","properties":{}}""")),
+    StreamingOrchestrator.ToolDef("search_location", "Search for an address, place, or business by name. Returns coordinates and address for up to 5 results.", org.json.JSONObject("""{"type":"object","properties":{"query":{"type":"string","description":"Place name, address, or business to search for"}},"required":["query"]}"""))
   )
 
   private val locationProvider by lazy { com.aiope2.feature.chat.location.LocationProvider(getApplication()) }
@@ -513,6 +514,23 @@ class ChatViewModel @Inject constructor(
         val address = locationProvider.reverseGeocode(loc)
         if (address != null) "$base\n$address" else base
       } else "Location unavailable -- check permissions or GPS"
+    }
+    "search_location" -> {
+      val query = args["query"]?.toString() ?: ""
+      try {
+        val geocoder = android.location.Geocoder(getApplication(), java.util.Locale.US)
+        val results = geocoder.getFromLocationName(query, 5)
+        if (results.isNullOrEmpty()) "No results found for: $query"
+        else {
+          // Store first result for map card
+          val first = results[0]
+          lastLocationData = LocationData(latitude = first.latitude, longitude = first.longitude)
+          results.mapIndexed { i, addr ->
+            val line = addr.getAddressLine(0) ?: "${addr.locality ?: ""}, ${addr.adminArea ?: ""}, ${addr.countryName ?: ""}"
+            "${i + 1}. $line\n   Lat: ${addr.latitude}, Lng: ${addr.longitude}"
+          }.joinToString("\n")
+        }
+      } catch (e: Exception) { "Error: ${e.message}" }
     }
     else -> "Unknown tool: $name"
   }

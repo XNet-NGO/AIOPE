@@ -126,8 +126,7 @@ fun MessageBubble(
                 .replace(Regex("\\$([^$]+)\\$"), "$1")
                 .replace("\u00B0", " deg")
                 .replace("\u00B1", "+/-")
-                .replace(Regex("[\\uD800-\\uDFFF]"), "")  // strip surrogate pairs (emojis)
-                .replace(Regex("[\u2600-\u27BF\uFE00-\uFE0F\u200D]"), "")
+                .let { s -> String(s.toCharArray().filter { c -> !c.isSurrogate() && c.code !in 0x2600..0x27BF && c.code !in 0xFE00..0xFE0F && c.code != 0x200D }.toCharArray()) }
               markwon.setMarkdown(tv, cleaned)
             },
               modifier = Modifier.fillMaxWidth()

@@ -241,17 +241,19 @@ class ChatViewModel @Inject constructor(
           onToolCall = { name, args -> executeToolCall(name, args) }
         )
 
-        // Encode images to base64
+        // Encode images to base64 — pad to square, resize to 448x448, JPEG compress
         val imageBase64s = imageUris.mapNotNull { uriStr ->
           try {
             val uri = android.net.Uri.parse(uriStr)
             val input = getApplication<android.app.Application>().contentResolver.openInputStream(uri) ?: return@mapNotNull null
             val bytes = input.readBytes(); input.close()
-            // Resize if too large (>1MB)
             val bmp = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return@mapNotNull null
+            val padded = padToSquare(bmp)
+            val scaled = android.graphics.Bitmap.createScaledBitmap(padded, 448, 448, true)
+            if (padded != bmp) padded.recycle()
             val out = java.io.ByteArrayOutputStream()
-            val scale = if (bytes.size > 1_000_000) 60 else 80
-            bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, scale, out)
+            scaled.compress(android.graphics.Bitmap.CompressFormat.JPEG, 85, out)
+            scaled.recycle()
             android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP)
           } catch (_: Exception) { null }
         }
@@ -619,6 +621,17 @@ class ChatViewModel @Inject constructor(
     val firstProps = features.getJSONObject(0).getJSONObject("properties")
     lastLocationData = LocationData(latitude = firstProps.optDouble("lat", 0.0), longitude = firstProps.optDouble("lon", 0.0))
     return results.joinToString("\n")
+  }
+
+  private fun padToSquare(bmp: android.graphics.Bitmap): android.graphics.Bitmap {
+    val w = bmp.width; val h = bmp.height
+    if (w == h) return bmp
+    val size = maxOf(w, h)
+    val out = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+    val canvas = android.graphics.Canvas(out)
+    canvas.drawColor(android.graphics.Color.BLACK)
+    canvas.drawBitmap(bmp, ((size - w) / 2f), ((size - h) / 2f), null)
+    return out
   }
 
   private fun haversineKm(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {

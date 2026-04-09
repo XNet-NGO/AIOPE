@@ -593,7 +593,8 @@ class ChatViewModel @Inject constructor(
       val conn = u.openConnection() as java.net.HttpURLConnection
       if (p.apiKey.isNotBlank()) conn.setRequestProperty("Authorization", "Bearer ${p.apiKey}")
       conn.connectTimeout = 15_000; conn.readTimeout = 30_000
-      val body = conn.inputStream.bufferedReader(Charsets.UTF_8).readText()
+      val stream = if (conn.responseCode in 200..299) conn.inputStream else conn.errorStream
+      val body = stream?.bufferedReader(Charsets.UTF_8)?.readText() ?: "Error: HTTP ${conn.responseCode}"
       conn.disconnect()
       if (body.length > 8000) body.take(8000) + "\n...(truncated)" else body
     } catch (e: Exception) { "Error: ${e.message}" }

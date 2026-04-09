@@ -128,7 +128,12 @@ fun MessageBubble(
                   .bodyBackgroundColor(0xFF1E1E1E.toInt())
                   .borderColor(0xFF3C3C3C.toInt())
                 styles.tableStyle(ts)
-                PrinterMarkDownTextView(context).apply {
+                val hsv = android.widget.HorizontalScrollView(context).apply {
+                  isHorizontalScrollBarEnabled = true
+                  isFillViewport = true
+                  setHorizontalScrollBarEnabled(true)
+                }
+                val tv = PrinterMarkDownTextView(context).apply {
                   init(styles, null)
                   setTextColor(textColor)
                   textSize = 14f
@@ -145,13 +150,18 @@ fun MessageBubble(
                     setTextSelectHandleRight(handleDrawable)
                   }
                   setPadding(32, 16, 32, 8)
-                  tag = ""
                 }
+                hsv.addView(tv, android.view.ViewGroup.LayoutParams(
+                  android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+                  android.view.ViewGroup.LayoutParams.WRAP_CONTENT))
+                hsv.tag = ""
+                hsv
               },
-              update = { tv ->
-                val prev = tv.tag as? String ?: ""
+              update = { hsv ->
+                val tv = (hsv as android.widget.HorizontalScrollView).getChildAt(0) as PrinterMarkDownTextView
+                val prev = hsv.tag as? String ?: ""
                 if (content != prev) {
-                  tv.tag = content
+                  hsv.tag = content
                   android.util.Log.d("AIOPE2_MD", "setMarkdownText len=${content.length} first100=${content.take(100)}")
                   try {
                     tv.setMarkdownText(content)

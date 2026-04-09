@@ -74,7 +74,7 @@ fun MessageBubble(
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
       Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceVariant,
         modifier = Modifier.widthIn(max = 480.dp)) {
-        Column(Modifier.padding(bottom = 4.dp).animateContentSize()) {
+        Column(Modifier.padding(bottom = 4.dp)) {
 
           if (message.reasoning.isNotEmpty()) {
             message.reasoning.forEachIndexed { idx, block ->
@@ -100,7 +100,7 @@ fun MessageBubble(
 
           if (message.content.isNotBlank()) {
             val textColor = MaterialTheme.colorScheme.onSurface.toArgb()
-            val content = message.content
+            val content = message.content.trimEnd()
             AndroidView(
               factory = { context ->
                 AFMInitializer.init(context, null, null, null)
@@ -112,6 +112,10 @@ fun MessageBubble(
                     .borderColor(0xFF3C3C3C.toInt())
                     .inlineFontColor(0xFFCE9178.toInt())
                     .inlineCodeBackgroundColor(0xFF2D2D2D.toInt()))
+                  .tableStyle(com.fluid.afm.styles.TableStyle.create()
+                    .bodyFontSize(13f * context.resources.displayMetrics.density)
+                    .headerFontSize(13f * context.resources.displayMetrics.density)
+                    .titleFontSize(13f * context.resources.displayMetrics.density))
                 PrinterMarkDownTextView(context).apply {
                   init(styles, null)
                   setTextColor(textColor)

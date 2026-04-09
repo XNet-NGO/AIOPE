@@ -181,9 +181,11 @@ private fun ReasoningBlock(reasoning: String, isStreaming: Boolean) {
         if (isStreaming) LoadingDots()
       }
       AnimatedVisibility(visible = expanded) {
-        Text(reasoning, fontSize = 12.sp, lineHeight = 16.sp,
-          color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-          modifier = Modifier.padding(top = 6.dp))
+        SelectionContainer {
+          Text(reasoning, fontSize = 12.sp, lineHeight = 16.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+            modifier = Modifier.padding(top = 6.dp))
+        }
       }
     }
   }
@@ -223,8 +225,10 @@ private fun ToolCallsBlock(calls: List<String>, results: List<String>) {
           modifier = Modifier.fillMaxWidth().padding(start = 8.dp, top = 1.dp, bottom = 4.dp)
             .clickable { resultExpanded = !resultExpanded }
         ) {
-          Text(preview, fontSize = 11.sp, color = Color(0xFFB0B0B0),
-            modifier = Modifier.padding(8.dp, 4.dp), fontFamily = FontFamily.Monospace, lineHeight = 14.sp)
+          SelectionContainer {
+            Text(preview, fontSize = 11.sp, color = Color(0xFFB0B0B0),
+              modifier = Modifier.padding(8.dp, 4.dp), fontFamily = FontFamily.Monospace, lineHeight = 14.sp)
+          }
         }
       }
     }

@@ -11,6 +11,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.text.selection.LocalTextSelectionColors
+import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
@@ -40,7 +42,9 @@ fun MessageBubble(
   val isUser = message.role == Role.USER
   val ctx = LocalContext.current
   var showMenu by remember { mutableStateOf(false) }
+  val blueSelection = remember { TextSelectionColors(handleColor = Color(0xFF4488FF), backgroundColor = Color(0x664488FF)) }
 
+  CompositionLocalProvider(LocalTextSelectionColors provides blueSelection) {
   if (isUser) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
       Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.primary,
@@ -129,6 +133,17 @@ fun MessageBubble(
                   setTextColor(textColor)
                   textSize = 14f
                   setTextIsSelectable(true)
+                  highlightColor = 0x664488FF.toInt()
+                  if (android.os.Build.VERSION.SDK_INT >= 29) {
+                    val handleDrawable = android.graphics.drawable.GradientDrawable().apply {
+                      shape = android.graphics.drawable.GradientDrawable.OVAL
+                      setSize(48, 48)
+                      setColor(0xFF4488FF.toInt())
+                    }
+                    setTextSelectHandle(handleDrawable)
+                    setTextSelectHandleLeft(handleDrawable)
+                    setTextSelectHandleRight(handleDrawable)
+                  }
                   setPadding(32, 16, 32, 8)
                   tag = ""
                 }
@@ -160,6 +175,7 @@ fun MessageBubble(
       }
     }
   }
+  } // CompositionLocalProvider
 }
 
 @Composable

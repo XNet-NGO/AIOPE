@@ -104,8 +104,16 @@ fun MessageBubble(
             AndroidView(
               factory = { context ->
                 AFMInitializer.init(context, null, null, null)
+                val styles = MarkdownStyles.getDefaultStyles()
+                  .codeStyle(com.fluid.afm.styles.CodeStyle.create()
+                    .codeFontColor(0xFFE0E0E0.toInt())
+                    .codeBackgroundColor(0xFF1E1E1E.toInt())
+                    .titleFontColor(0xFF9CDCFE.toInt())
+                    .borderColor(0xFF3C3C3C.toInt())
+                    .inlineFontColor(0xFFCE9178.toInt())
+                    .inlineCodeBackgroundColor(0xFF2D2D2D.toInt()))
                 PrinterMarkDownTextView(context).apply {
-                  init(MarkdownStyles(), null)
+                  init(styles, null)
                   setTextColor(textColor)
                   textSize = 14f
                   setTextIsSelectable(true)

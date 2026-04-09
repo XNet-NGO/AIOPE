@@ -198,18 +198,39 @@ private fun MessageList(messages: List<ChatMessage>, isStreaming: Boolean = fals
   LaunchedEffect(messages.size) {
     if (messages.isNotEmpty()) scope.launch { listState.animateScrollToItem(messages.size - 1) }
   }
-  LazyColumn(state = listState, modifier = modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
-    items(messages.size, key = { messages[it].id }) { idx ->
-      val msg = messages[idx]
-      MessageBubble(
-        message = msg,
-        isLastStreaming = isStreaming && idx == messages.lastIndex && msg.role == Role.ASSISTANT,
-        onEdit = if (msg.role == Role.USER) {{ onEdit?.invoke(idx) }} else null,
-        onRetry = if (msg.role == Role.ASSISTANT) {{ onRetry?.invoke(idx) }} else null,
-        onCompact = { onCompact?.invoke(idx) },
-        onFork = { onFork?.invoke(idx) }
-      )
-      Spacer(Modifier.height(8.dp))
+  Box(modifier = modifier) {
+    LazyColumn(state = listState, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
+      items(messages.size, key = { messages[it].id }) { idx ->
+        val msg = messages[idx]
+        MessageBubble(
+          message = msg,
+          isLastStreaming = isStreaming && idx == messages.lastIndex && msg.role == Role.ASSISTANT,
+          onEdit = if (msg.role == Role.USER) {{ onEdit?.invoke(idx) }} else null,
+          onRetry = if (msg.role == Role.ASSISTANT) {{ onRetry?.invoke(idx) }} else null,
+          onCompact = { onCompact?.invoke(idx) },
+          onFork = { onFork?.invoke(idx) }
+        )
+        Spacer(Modifier.height(8.dp))
+      }
+    }
+    // Scroll nav: < o >
+    if (messages.size > 2) {
+      Row(
+        modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp)
+      ) {
+        val btnMod = Modifier.size(32.dp)
+        val btnColors = IconButtonDefaults.iconButtonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f))
+        IconButton(onClick = { scope.launch { listState.animateScrollToItem(0) } }, modifier = btnMod, colors = btnColors) {
+          Icon(Icons.Default.KeyboardArrowUp, "Top", modifier = Modifier.size(18.dp))
+        }
+        IconButton(onClick = { scope.launch { listState.animateScrollToItem(messages.size / 2) } }, modifier = btnMod, colors = btnColors) {
+          Icon(Icons.Default.FiberManualRecord, "Center", modifier = Modifier.size(10.dp))
+        }
+        IconButton(onClick = { scope.launch { listState.animateScrollToItem(messages.size - 1) } }, modifier = btnMod, colors = btnColors) {
+          Icon(Icons.Default.KeyboardArrowDown, "Bottom", modifier = Modifier.size(18.dp))
+        }
+      }
     }
   }
 }

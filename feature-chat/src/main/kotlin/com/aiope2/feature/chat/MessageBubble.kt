@@ -105,6 +105,8 @@ fun MessageBubble(
           if (message.content.isNotBlank()) {
             val textColor = MaterialTheme.colorScheme.onSurface.toArgb()
             val content = message.content.trimEnd()
+            // Long-press to copy entire response
+            val ctx2 = LocalContext.current
             AndroidView(
               factory = { context ->
                 AFMInitializer.init(context, null, null, null)
@@ -132,19 +134,11 @@ fun MessageBubble(
                   init(styles, null)
                   setTextColor(textColor)
                   textSize = 14f
+                  setPadding(32, 16, 32, 16)
                   setTextIsSelectable(true)
+                  isFocusable = true
+                  isFocusableInTouchMode = true
                   highlightColor = 0x664488FF.toInt()
-                  if (android.os.Build.VERSION.SDK_INT >= 29) {
-                    val handleDrawable = android.graphics.drawable.GradientDrawable().apply {
-                      shape = android.graphics.drawable.GradientDrawable.OVAL
-                      setSize(48, 48)
-                      setColor(0xFF4488FF.toInt())
-                    }
-                    setTextSelectHandle(handleDrawable)
-                    setTextSelectHandleLeft(handleDrawable)
-                    setTextSelectHandleRight(handleDrawable)
-                  }
-                  setPadding(32, 16, 32, 8)
                   tag = ""
                 }
               },
@@ -152,16 +146,12 @@ fun MessageBubble(
                 val prev = tv.tag as? String ?: ""
                 if (content != prev) {
                   tv.tag = content
-                  android.util.Log.d("AIOPE2_MD", "setMarkdownText len=${content.length} first100=${content.take(100)}")
                   try {
                     tv.setMarkdownText(content)
-                    val rendered = tv.text?.length ?: 0
-                    android.util.Log.d("AIOPE2_MD", "rendered len=$rendered")
                     if (tv.text.isNullOrEmpty() && content.isNotEmpty()) {
                       tv.text = content
                     }
                   } catch (e: Exception) {
-                    android.util.Log.e("AIOPE2_MD", "setMarkdownText failed", e)
                     tv.text = content
                   }
                 }

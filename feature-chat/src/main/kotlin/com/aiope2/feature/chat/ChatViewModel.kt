@@ -536,6 +536,7 @@ class ChatViewModel @Inject constructor(
     StreamingOrchestrator.ToolDef("list_directory", "List directory", org.json.JSONObject("""{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}""")),
     StreamingOrchestrator.ToolDef("get_location", "Get the device's current GPS location. Call this FIRST when the user asks about nearby places or 'closest' anything, then use the coordinates with search_location.", org.json.JSONObject("""{"type":"object","properties":{}}""")),
     StreamingOrchestrator.ToolDef("open_intent", "Open a URL, app, or navigation intent from the device. Use for opening maps, web pages, dialing, etc. Examples: 'https://google.com', 'geo:43.6,-116.3', 'google.navigation:q=123+Main+St', 'tel:5551234567'", org.json.JSONObject("""{"type":"object","properties":{"uri":{"type":"string","description":"URI to open. Supports https://, geo:, google.navigation:q=, tel:, mailto:, etc."}},"required":["uri"]}""")),
+    StreamingOrchestrator.ToolDef("fetch_url", "Fetch content from a URL. Returns raw text for txt/md/json/css/xml, or extracted readable text for HTML pages. Use for reading web pages, APIs, raw files, documentation, etc.", org.json.JSONObject("""{"type":"object","properties":{"url":{"type":"string","description":"URL to fetch"},"mode":{"type":"string","description":"Optional: 'raw' for raw response, 'text' (default) for extracted text from HTML"}},"required":["url"]}""")),
     StreamingOrchestrator.ToolDef("search_location", "Search for any place, address, landmark, or business/amenity. For nearby searches ('closest pizza'), call get_location first to establish position. Handles addresses, landmarks, cities, and business/amenity searches (restaurants, cafes, gas stations, etc).", org.json.JSONObject("""{"type":"object","properties":{"query":{"type":"string","description":"What to search for. Examples: '1600 Pennsylvania Ave, Washington DC', 'Eiffel Tower', 'pizza in Boise, ID', 'Starbucks near Meridian, Idaho', 'gas station'"}},"required":["query"]}"""))
   )
 
@@ -557,6 +558,19 @@ class ChatViewModel @Inject constructor(
       val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, uri).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
       getApplication<android.app.Application>().startActivity(intent)
       "Opened: $uri"
+    } catch (e: Exception) { "Error: ${e.message}" }
+    "fetch_url" -> try {
+      val url = java.net.URL(args["url"].toString())
+      val mode = args["mode"]?.toString() ?: "text"
+      val conn = url.openConnection() as java.net.HttpURLConnection
+      conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android) AIOPE2/1.0")
+      conn.connectTimeout = 15_000; conn.readTimeout = 15_000
+      val ct = conn.contentType ?: ""
+      val body = conn.inputStream.bufferedReader(Charsets.UTF_8).readText()
+      conn.disconnect()
+      val result = if (mode == "raw" || !ct.contains("html")) body
+        else android.text.Html.fromHtml(body.replace(Regex("<(script|style|nav|footer|header)[^>]*>[\\s\\S]*?</\\1>", RegexOption.IGNORE_CASE), ""), android.text.Html.FROM_HTML_MODE_COMPACT).toString().trim()
+      if (result.length > 8000) result.take(8000) + "\n...(truncated)" else result
     } catch (e: Exception) { "Error: ${e.message}" }
     "get_location" -> kotlinx.coroutines.runBlocking {
       val loc = locationProvider.getFreshLocation() ?: locationProvider.getLastLocation()

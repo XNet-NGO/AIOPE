@@ -576,15 +576,17 @@ class ChatViewModel @Inject constructor(
     "query_data" -> try {
       val cat = args["category"]?.toString() ?: ""
       val extra = args["extra"]?.toString() ?: ""
-      // Auto-inject device location
-      val loc = lastLocationData ?: kotlinx.coroutines.runBlocking {
-        locationProvider.getLastLocation()?.let { l ->
-          lastLocationData = LocationData(l.latitude, l.longitude, null, null, null, l.accuracy.toDouble())
-          lastLocationData
+      val needsLocation = cat in setOf("weather","weather_hourly","alerts","air_quality","uv","solar","sunrise_sunset","flights","time")
+      val lat: String; val lon: String
+      if (needsLocation) {
+        val loc = lastLocationData ?: kotlinx.coroutines.runBlocking {
+          locationProvider.getLastLocation()?.let { l ->
+            lastLocationData = LocationData(l.latitude, l.longitude, null, null, null, l.accuracy.toDouble())
+            lastLocationData
+          }
         }
-      }
-      val lat = loc?.latitude?.toString() ?: ""
-      val lon = loc?.longitude?.toString() ?: ""
+        lat = loc?.latitude?.toString() ?: ""; lon = loc?.longitude?.toString() ?: ""
+      } else { lat = ""; lon = "" }
       val p = providerStore.getActive()
       val gwBase = p.effectiveApiBase().trimEnd('/').removeSuffix("/chat/completions").removeSuffix("/v1")
       val u = java.net.URL("$gwBase/v1/data?q=$cat&lat=$lat&lon=$lon&extra=$extra")

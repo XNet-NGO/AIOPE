@@ -23,7 +23,7 @@ dependencies {
   implementation("com.atlassian.commonmark:commonmark:0.13.0")
   implementation("com.atlassian.commonmark:commonmark-ext-gfm-tables:0.13.0")
   implementation("com.vdurmont:emoji-java:5.1.1")
-  implementation("androidx.recyclerview:recyclerview:1.3.2")
+  implementation("androidx.recyclerview:recyclerview:1.4.0")
   implementation(libs.androidx.appcompat)
   implementation("ru.noties:jlatexmath-android:0.2.0")
   implementation("ru.noties:jlatexmath-android-font-cyrillic:0.2.0")

@@ -200,10 +200,16 @@ private fun EmptyState(onSend: (String, List<String>) -> Unit, modifier: Modifie
 private fun MessageList(messages: List<ChatMessage>, isStreaming: Boolean = false, onEdit: ((Int) -> Unit)? = null, onRetry: ((Int) -> Unit)? = null, onCompact: ((Int) -> Unit)? = null, onFork: ((Int) -> Unit)? = null, modifier: Modifier = Modifier) {
   val listState = rememberLazyListState()
   val scope = rememberCoroutineScope()
+  val prevCount = remember { mutableIntStateOf(messages.size) }
   LaunchedEffect(messages.size) {
-    if (messages.isNotEmpty()) scope.launch {
-      listState.animateScrollToItem(messages.size)
+    if (messages.size > prevCount.intValue) {
+      // Only auto-scroll if user is near the bottom (within last 3 items)
+      val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+      if (lastVisible >= messages.size - 3) {
+        scope.launch { listState.animateScrollToItem(messages.size) }
+      }
     }
+    prevCount.intValue = messages.size
   }
   Box(modifier = modifier) {
     LazyColumn(state = listState, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 60.dp)) {

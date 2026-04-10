@@ -7,10 +7,10 @@ val PRIMARY = Color(0xFF166C47)
 val PRIMARY_DARK = Color(0xFF87D7AA)
 val PRIMARY_CONTAINER_DARK = Color(0xFF1B4D35)
 val PRIMARY_CONTAINER_LIGHT = Color(0xFFB8F0D2)
-// Main background: dark green tint
-val BACKGROUND_DARK = Color(0xFF0D1F16)
+// Main background: richer dark green
+val BACKGROUND_DARK = Color(0xFF132E1F)
 val BACKGROUND_LIGHT = Color(0xFFF0F7F3)
-val SURFACE_DARK = Color(0xFF0D1F16)
+val SURFACE_DARK = Color(0xFF132E1F)
 val SURFACE_LIGHT = Color(0xFFF0F7F3)
 // Containers: black for high contrast
 val SURFACE_VARIANT_DARK = Color(0xFF0A0A0A)

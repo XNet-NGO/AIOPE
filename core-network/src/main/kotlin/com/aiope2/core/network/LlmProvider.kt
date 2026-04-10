@@ -127,27 +127,9 @@ data class BuiltinProvider(
 
 object ProviderTemplates {
   val ALL = listOf(
-    BuiltinProvider("pollinations", "Pollinations", "🌸", "https://text.pollinations.ai/openai", "(no key)", false, listOf(
-      ModelDef("openai-fast", "GPT-OSS Fast", 32_768), ModelDef("openai", "GPT-OSS", 32_768), ModelDef("openai-large", "GPT-OSS Large", 32_768))),
-    BuiltinProvider("aiope_gateway", "AIOPE Gateway", "A", "https://inf.xnet.ngo/v1", apiKeyHint = "Gateway key", defaultModels = listOf(
+    BuiltinProvider("aiope_gateway", "AIOPE Gateway", "", "https://inf.xnet.ngo/v1", apiKeyHint = "Gateway key", defaultModels = listOf(
       ModelDef("llama/qwen3.5-2b-heretic", "Qwen 3.5 2B Heretic", 32_768))),
-    BuiltinProvider("openai", "OpenAI", "🤖", apiKeyHint = "sk-…", defaultModels = listOf(
-      ModelDef("gpt-4o", "GPT-4o", 128_000, true, true), ModelDef("gpt-4o-mini", "GPT-4o mini", 128_000, true, true), ModelDef("o4-mini", "o4-mini", 200_000, true, true))),
-    BuiltinProvider("anthropic", "Anthropic", "🧠", apiKeyHint = "sk-ant-…", defaultModels = listOf(
-      ModelDef("claude-sonnet-4-20250514", "Claude Sonnet 4", 200_000, true, true), ModelDef("claude-3-5-haiku-20241022", "Claude 3.5 Haiku", 200_000, true, true))),
-    BuiltinProvider("google_ai_studio", "Google AI Studio", "✨", "https://generativelanguage.googleapis.com/v1beta/openai", "AIza…", defaultModels = listOf(
-      ModelDef("gemini-2.0-flash", "Gemini 2.0 Flash", 1_000_000, true, true))),
-    BuiltinProvider("deepseek", "DeepSeek", "🔍", apiKeyHint = "sk-…", defaultModels = listOf(
-      ModelDef("deepseek-chat", "DeepSeek V3", 64_000), ModelDef("deepseek-reasoner", "DeepSeek R1", 64_000, false))),
-    BuiltinProvider("openrouter", "OpenRouter", "🔀", "https://openrouter.ai/api/v1", "sk-or-…", defaultModels = listOf(
-      ModelDef("google/gemini-2.0-flash-exp:free", "Gemini 2.0 Flash (free)", 1_000_000), ModelDef("deepseek/deepseek-chat-v3-0324:free", "DeepSeek V3 (free)", 64_000))),
-    BuiltinProvider("github_models", "GitHub Models", "🐙", "https://models.github.ai/inference", "github_pat_…", defaultModels = listOf(
-      ModelDef("gpt-4o", "GPT-4o", 131_072, true, true), ModelDef("DeepSeek-R1", "DeepSeek R1", 128_000, false))),
-    BuiltinProvider("groq", "Groq", "⚡", "https://api.groq.com/openai/v1", "gsk_…", defaultModels = listOf(
-      ModelDef("llama-3.3-70b-versatile", "Llama 3.3 70B", 128_000))),
-    BuiltinProvider("ollama", "Ollama (local)", "🦙", "http://localhost:11434/v1", "(no key)", false, defaultModels = listOf(
-      ModelDef("llama3.2", "Llama 3.2", 128_000), ModelDef("qwen2.5", "Qwen 2.5", 128_000))),
-    BuiltinProvider("custom", "Custom", "⚙️", apiKeyHint = "API key", requiresApiKey = false),
+    BuiltinProvider("custom", "Custom", "", apiKeyHint = "API key", requiresApiKey = false),
   )
   val byId = ALL.associateBy { it.id }
 }

@@ -17,8 +17,8 @@ class ProviderStore @Inject constructor(@ApplicationContext ctx: Context) {
   init {
     if (getAll().isEmpty()) {
       val default = ProviderProfile(
-        id = "default_pollinations", builtinId = "pollinations",
-        label = "Pollinations", selectedModelId = "openai-fast", isActive = true
+        id = "default_gateway", builtinId = "aiope_gateway",
+        label = "AIOPE Gateway", selectedModelId = "llama/qwen3.5-2b-heretic", isActive = true
       )
       save(default); setActive(default.id)
     }
@@ -34,7 +34,7 @@ class ProviderStore @Inject constructor(@ApplicationContext ctx: Context) {
 
   fun getActive(): ProviderProfile =
     getAll().firstOrNull { it.id == prefs.getString("active_id", "") } ?: getAll().firstOrNull()
-      ?: ProviderProfile(builtinId = "pollinations", label = "Pollinations", selectedModelId = "openai-fast")
+      ?: ProviderProfile(builtinId = "aiope_gateway", label = "AIOPE Gateway", selectedModelId = "llama/qwen3.5-2b-heretic")
 
   fun getById(id: String): ProviderProfile? = getAll().firstOrNull { it.id == id }
 

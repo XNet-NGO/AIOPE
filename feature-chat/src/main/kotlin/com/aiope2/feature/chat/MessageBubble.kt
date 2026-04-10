@@ -135,6 +135,16 @@ fun MessageBubble(
                   textSize = 14f
                   setPadding(32, 16, 32, 16)
                   tag = ""
+                  viewTreeObserver.addOnGlobalLayoutListener {
+                    val l = layout ?: return@addOnGlobalLayoutListener
+                    val contentH = l.getLineBottom(l.lineCount - 1) + paddingTop + paddingBottom
+                    if (measuredHeight > contentH + 50) {
+                      layoutParams?.let { lp ->
+                        lp.height = contentH
+                        layoutParams = lp
+                      }
+                    }
+                  }
                 }
               },
               update = { tv ->
@@ -145,12 +155,13 @@ fun MessageBubble(
                     tv.setMarkdownText(content)
                     if (tv.text.isNullOrEmpty() && content.isNotEmpty()) tv.text = content
                   } catch (_: Exception) { tv.text = content }
-                  // Trim trailing newlines that cause extra empty space
+                  // Trim trailing whitespace
                   val txt = tv.text
-                  if (txt != null && txt.endsWith("\n")) {
-                    var i = txt.length
-                    while (i > 0 && txt[i - 1] == '\n') i--
-                    if (i < txt.length) tv.text = txt.subSequence(0, i)
+                  if (txt != null) {
+                    val len = txt.length
+                    var i = len
+                    while (i > 0 && (txt[i - 1] == '\n' || txt[i - 1] == '\u00A0' || txt[i - 1] == ' ')) i--
+                    if (i < len) tv.text = txt.subSequence(0, i)
                   }
                 }
               },              modifier = Modifier.fillMaxWidth().wrapContentHeight()

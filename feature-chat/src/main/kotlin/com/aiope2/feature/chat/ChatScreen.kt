@@ -197,7 +197,7 @@ private fun MessageList(messages: List<ChatMessage>, isStreaming: Boolean = fals
   val scope = rememberCoroutineScope()
   LaunchedEffect(messages.size) {
     if (messages.isNotEmpty()) scope.launch {
-      listState.animateScrollToItem(messages.size - 1, scrollOffset = Int.MAX_VALUE)
+      listState.animateScrollToItem(messages.size - 1)
     }
   }
   Box(modifier = modifier) {

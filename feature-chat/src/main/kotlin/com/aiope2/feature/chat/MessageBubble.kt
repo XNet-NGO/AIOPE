@@ -3,6 +3,8 @@ package com.aiope2.feature.chat
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.draw.clip
 import android.widget.Toast
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -153,7 +155,18 @@ private fun AssistantBubble(
         theme = mdTheme,
         animateStreaming = true,
         modifier = Modifier.fillMaxWidth(),
-        onExportPdf = { latex -> LatexPdfExporter.export(ctx, latex) }
+        onExportPdf = { latex -> LatexPdfExporter.export(ctx, latex) },
+        onImageContent = { url, alt ->
+          coil.compose.AsyncImage(
+            model = url,
+            contentDescription = alt,
+            modifier = Modifier
+              .fillMaxWidth()
+              .padding(vertical = 4.dp)
+              .clip(RoundedCornerShape(8.dp)),
+            contentScale = ContentScale.FillWidth
+          )
+        }
       )
     }
 

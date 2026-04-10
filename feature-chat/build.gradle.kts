@@ -25,6 +25,7 @@ dependencies {
   implementation("com.vdurmont:emoji-java:5.1.1")
   implementation("androidx.recyclerview:recyclerview:1.4.0")
   implementation(libs.androidx.appcompat)
+  implementation("io.coil-kt:coil-compose:2.6.0")
   implementation("ru.noties:jlatexmath-android:0.2.0")
   implementation("ru.noties:jlatexmath-android-font-cyrillic:0.2.0")
   implementation("ru.noties:jlatexmath-android-font-greek:0.2.0")

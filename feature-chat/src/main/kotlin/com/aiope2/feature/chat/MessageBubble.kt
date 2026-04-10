@@ -106,7 +106,6 @@ fun MessageBubble(
           if (message.content.isNotBlank()) {
             val textColor = MaterialTheme.colorScheme.onSurface.toArgb()
             val content = message.content.trimEnd()
-            key(message.id) {
             AndroidView(
               factory = { context ->
                 AFMInitializer.init(context, null, null, null)
@@ -146,10 +145,15 @@ fun MessageBubble(
                     tv.setMarkdownText(content)
                     if (tv.text.isNullOrEmpty() && content.isNotEmpty()) tv.text = content
                   } catch (_: Exception) { tv.text = content }
-                  tv.post { tv.requestLayout() }
+                  // Trim trailing newlines that cause extra empty space
+                  val txt = tv.text
+                  if (txt != null && txt.endsWith("\n")) {
+                    var i = txt.length
+                    while (i > 0 && txt[i - 1] == '\n') i--
+                    if (i < txt.length) tv.text = txt.subSequence(0, i)
+                  }
                 }
-              },
-              modifier = Modifier.fillMaxWidth().wrapContentHeight()
+              },              modifier = Modifier.fillMaxWidth().wrapContentHeight()
             )
             // Quick copy button
             Box(Modifier.fillMaxWidth().padding(end = 8.dp), contentAlignment = Alignment.CenterEnd) {
@@ -162,7 +166,6 @@ fun MessageBubble(
                   tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
               }
             }
-            } // key(message.id)
           }
 
           MessageMenu(message, showMenu, { showMenu = it }, ctx, onEdit, onRetry, onCompact, onFork)

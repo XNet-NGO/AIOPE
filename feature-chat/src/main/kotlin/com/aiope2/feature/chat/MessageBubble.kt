@@ -152,7 +152,8 @@ private fun AssistantBubble(
         content = content,
         theme = mdTheme,
         animateStreaming = true,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
+        onExportPdf = { latex -> LatexPdfExporter.export(ctx, latex) }
       )
     }
 

@@ -28,6 +28,13 @@ class ChatViewModel @Inject constructor(
   val providerStore: ProviderStore
 ) : AndroidViewModel(application) {
 
+  companion object {
+    private const val DEFAULT_SYSTEM_PROMPT = "You are AIOPE, an AI assistant running on Android with tool access. " +
+      "When tool results contain markdown images like ![alt](url), include them in your response exactly as-is so they render inline. " +
+      "Always use markdown image syntax ![description](url) to display images — never output bare URLs. " +
+      "Use markdown formatting in all responses."
+  }
+
   private val _messages = MutableStateFlow<List<ChatMessage>>(emptyList())
   val messages = _messages.asStateFlow()
 
@@ -241,7 +248,7 @@ class ChatViewModel @Inject constructor(
 
         // Build messages (trim to contextTokens limit, ~4 chars/token)
         val chatMessages = mutableListOf<Pair<String, String>>()
-        mc.systemPromptOverride?.let { if (it.isNotBlank()) chatMessages.add("system" to it) }
+        chatMessages.add("system" to (mc.systemPromptOverride?.takeIf { it.isNotBlank() } ?: DEFAULT_SYSTEM_PROMPT))
         val maxChars = mc.contextTokens * 4L
         var charCount = 0L
         val history = _messages.value.dropLast(1).reversed()
@@ -489,7 +496,7 @@ class ChatViewModel @Inject constructor(
         
 
         val chatMessages = mutableListOf<Pair<String, String>>()
-        mc.systemPromptOverride?.let { if (it.isNotBlank()) chatMessages.add("system" to it) }
+        chatMessages.add("system" to (mc.systemPromptOverride?.takeIf { it.isNotBlank() } ?: DEFAULT_SYSTEM_PROMPT))
         _messages.value.dropLast(1).forEach { msg ->
           when (msg.role) {
             Role.USER -> chatMessages.add("user" to msg.content)

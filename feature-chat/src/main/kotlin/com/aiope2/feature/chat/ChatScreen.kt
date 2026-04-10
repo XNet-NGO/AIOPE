@@ -328,9 +328,9 @@ private fun ChatInput(onSend: (String, List<String>) -> Unit, onStop: () -> Unit
       placeholder = { Text("Ask AI...") },
       maxLines = 6, enabled = !isStreaming,
       colors = OutlinedTextFieldDefaults.colors(
-        unfocusedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.06f),
-        focusedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.06f),
-        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f),
+        unfocusedContainerColor = Color(0xFF0A0A0A),
+        focusedContainerColor = Color(0xFF0A0A0A),
+        unfocusedBorderColor = Color(0xFF1A1A1A),
         focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)
       ),
       shape = RoundedCornerShape(16.dp)

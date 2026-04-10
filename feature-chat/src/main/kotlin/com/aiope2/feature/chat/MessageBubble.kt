@@ -154,30 +154,29 @@ private fun AssistantBubble(
         factory = { context ->
           AFMInitializer.init(context, null, null, null)
           val density = context.resources.displayMetrics.density
-          // Primary-tinted code block colors
-          val codeBg = blendColor(primaryArgb, cs.surface.toArgb(), 0.06f)
-          val codeHeaderBg = blendColor(primaryArgb, cs.surface.toArgb(), 0.16f)
+          // Black backgrounds for high contrast
+          val codeBg = 0xFF0A0A0A.toInt()
+          val codeHeaderBg = 0xFF111111.toInt()
           val styles = MarkdownStyles.getDefaultStyles()
             .codeStyle(com.fluid.afm.styles.CodeStyle.create()
               .codeFontColor(0xFFE0E0E0.toInt())
               .codeBackgroundColor(codeBg)
-              .titleFontColor(cs.onSurface.copy(alpha = 0.7f).toArgb())
-              .borderColor(cs.outlineVariant.copy(alpha = 0.2f).toArgb())
+              .titleFontColor(cs.primary.copy(alpha = 0.8f).toArgb())
+              .borderColor(0xFF1A1A1A.toInt())
               .inlineFontColor(0xFFCE9178.toInt())
-              .inlineCodeBackgroundColor(0x1FFFFFFF.toInt()))
-          val tableBorder = cs.outlineVariant.copy(alpha = 0.22f).toArgb()
-          val tableHeaderBg = blendColor(primaryArgb, cs.surface.toArgb(), 0.14f)
-          val ts = styles.tableStyle()
+              .inlineCodeBackgroundColor(0xFF111111.toInt()))
+          val styles2 = styles
+          val ts = styles2.tableStyle()
             .bodyFontSize(11f * density)
             .headerFontSize(11f * density)
             .titleFontSize(11f * density)
             .fontColor(cs.onSurface.toArgb())
-            .titleFontColor(cs.onSurface.copy(alpha = 0.7f).toArgb())
+            .titleFontColor(cs.primary.copy(alpha = 0.8f).toArgb())
             .titleBackgroundColor(codeHeaderBg)
-            .headerBackgroundColor(tableHeaderBg)
+            .headerBackgroundColor(0xFF0E0E0E.toInt())
             .bodyBackgroundColor(codeBg)
-            .borderColor(tableBorder)
-          styles.tableStyle(ts)
+            .borderColor(0xFF1A1A1A.toInt())
+          styles2.tableStyle(ts)
           PrinterMarkDownTextView(context).apply {
             init(styles, null)
             setTextColor(textColor)
@@ -247,26 +246,57 @@ private fun ActionIcon(icon: androidx.compose.ui.graphics.vector.ImageVector, de
 @Composable
 private fun ReasoningBlock(reasoning: String, isStreaming: Boolean) {
   val cs = MaterialTheme.colorScheme
-  var expanded by remember { mutableStateOf(true) }
-  LaunchedEffect(isStreaming) { if (!isStreaming && reasoning.length > 200) expanded = false }
+  // While streaming: partially collapsed (3 lines visible)
+  // When complete: fully collapsed (0 lines)
+  // Toggleable at any time
+  var userToggled by remember { mutableStateOf(false) }
+  var expanded by remember { mutableStateOf(false) }
+
+  // Auto-manage state based on streaming
+  LaunchedEffect(isStreaming) {
+    if (!isStreaming && !userToggled) expanded = false // collapse on complete
+  }
+
+  val showContent = if (userToggled) expanded else if (isStreaming) true else false
+  val isPartial = isStreaming && !expanded && !userToggled // show 3 lines during streaming
 
   Surface(
-    modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded },
+    modifier = Modifier.fillMaxWidth().clickable {
+      userToggled = true
+      expanded = !expanded
+    },
     shape = RoundedCornerShape(16.dp),
-    color = cs.primaryContainer.copy(alpha = 0.25f)
+    color = Color(0xFF0A0A0A)
   ) {
     Column(Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
       Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(if (expanded) "▾" else "▸", fontSize = 12.sp, color = cs.onSurfaceVariant)
+        Text(if (showContent) "▾" else "▸", fontSize = 12.sp, color = cs.onSurfaceVariant)
         Spacer(Modifier.width(4.dp))
         if (isStreaming) ShimmerText("Thinking…", cs) else Text("Thinking", fontSize = 13.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.W700, color = cs.onSurfaceVariant)
         if (isStreaming) { Spacer(Modifier.width(6.dp)); LoadingDots() }
       }
-      AnimatedVisibility(visible = expanded) {
-        SelectionContainer {
-          Text(reasoning, fontSize = 12.5.sp, lineHeight = 16.5.sp,
-            color = cs.onSurfaceVariant.copy(alpha = 0.7f),
-            modifier = Modifier.padding(top = 6.dp))
+      AnimatedVisibility(visible = showContent || isPartial) {
+        Box {
+          SelectionContainer {
+            Text(reasoning, fontSize = 12.5.sp, lineHeight = 16.5.sp,
+              color = cs.onSurfaceVariant.copy(alpha = 0.7f),
+              maxLines = if (isPartial) 3 else Int.MAX_VALUE,
+              overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+              modifier = Modifier.padding(top = 6.dp))
+          }
+          // Fade mask at bottom when partially collapsed
+          if (isPartial) {
+            Box(Modifier.matchParentSize().align(Alignment.BottomCenter)
+              .drawWithContent {
+                drawContent()
+                drawRect(
+                  brush = Brush.verticalGradient(
+                    colors = listOf(Color.Transparent, Color(0xFF0A0A0A)),
+                    startY = size.height * 0.4f, endY = size.height
+                  )
+                )
+              })
+          }
         }
       }
     }

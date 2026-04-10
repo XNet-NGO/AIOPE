@@ -25,8 +25,8 @@ class AiopeComposeNavigator @Inject constructor() : AppComposeNavigator() {
         route,
         androidx.navigation.navOptions {
           popUpTo(0)
-        }
-      )
+        },
+      ),
     )
   }
 }

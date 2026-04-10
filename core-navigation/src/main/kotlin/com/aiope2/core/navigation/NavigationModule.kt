@@ -11,7 +11,5 @@ import javax.inject.Singleton
 internal abstract class NavigationModule {
   @Binds
   @Singleton
-  abstract fun provideComposeNavigator(
-    navigator: AiopeComposeNavigator
-  ): AppComposeNavigator
+  abstract fun provideComposeNavigator(navigator: AiopeComposeNavigator): AppComposeNavigator
 }

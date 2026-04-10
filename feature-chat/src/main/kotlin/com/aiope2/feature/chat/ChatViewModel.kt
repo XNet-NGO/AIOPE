@@ -640,7 +640,8 @@ class ChatViewModel @Inject constructor(
       val stream = if (conn.responseCode in 200..299) conn.inputStream else conn.errorStream
       val body = stream?.bufferedReader(Charsets.UTF_8)?.readText() ?: "Error: HTTP ${conn.responseCode}"
       conn.disconnect()
-      if (body.length > 8000) body.take(8000) + "\n...(truncated)" else body
+      val enriched = resolveDataImages(cat, body)
+      if (enriched.length > 12000) enriched.take(12000) + "\n...(truncated)" else enriched
     } catch (e: Exception) { "Error: ${e.message}" }
     "get_location" -> kotlinx.coroutines.runBlocking {
       val loc = locationProvider.getFreshLocation() ?: locationProvider.getLastLocation()
@@ -688,6 +689,30 @@ class ChatViewModel @Inject constructor(
     else -> "Unknown tool: $name"
   }
 
+
+  private fun resolveDataImages(category: String, json: String): String {
+    try {
+      val imgs = mutableListOf<String>()
+      extractImageUrls(org.json.JSONTokener(json).nextValue(), imgs)
+      return if (imgs.isNotEmpty()) imgs.distinct().take(5).joinToString("\n") + "\n\n" + json else json
+    } catch (_: Exception) { return json }
+  }
+
+  private fun extractImageUrls(obj: Any?, out: MutableList<String>) {
+    when (obj) {
+      is org.json.JSONObject -> {
+        val imgKeys = setOf("url", "hdurl", "href", "image_url", "img_src", "thumbnail", "preview", "media_url", "src", "image")
+        for (key in obj.keys()) {
+          val v = obj.opt(key)
+          if (v is String && key in imgKeys && v.matches(Regex("^https?://.*\\.(jpg|jpeg|png|gif|webp)(\\?.*)?$", RegexOption.IGNORE_CASE))) {
+            val label = obj.optString("title", obj.optString("caption", key))
+            out.add("![$label]($v)")
+          } else extractImageUrls(v, out)
+        }
+      }
+      is org.json.JSONArray -> for (i in 0 until minOf(obj.length(), 10)) extractImageUrls(obj.opt(i), out)
+    }
+  }
   private fun searchPlaces(query: String): String {
     var lat = lastLocationData?.latitude
     var lng = lastLocationData?.longitude

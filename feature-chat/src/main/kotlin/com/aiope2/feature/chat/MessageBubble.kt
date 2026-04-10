@@ -4,8 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -16,12 +15,19 @@ import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
@@ -43,172 +49,223 @@ fun MessageBubble(
   val isUser = message.role == Role.USER
   val ctx = LocalContext.current
   var showMenu by remember { mutableStateOf(false) }
-  val blueSelection = remember { TextSelectionColors(handleColor = Color(0xFF4488FF), backgroundColor = Color(0x664488FF)) }
+  val cs = MaterialTheme.colorScheme
+  val selection = remember { TextSelectionColors(handleColor = cs.primary, backgroundColor = cs.primary.copy(alpha = 0.3f)) }
 
-  CompositionLocalProvider(LocalTextSelectionColors provides blueSelection) {
-  if (isUser) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-      Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.widthIn(max = 320.dp)) {
-        Column {
-          if (message.imageUris.isNotEmpty()) {
-            Row(Modifier.padding(8.dp, 8.dp, 8.dp, 0.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-              message.imageUris.forEach { uri ->
-                val bmp = remember(uri) {
-                  try { android.provider.MediaStore.Images.Media.getBitmap(ctx.contentResolver, android.net.Uri.parse(uri)) }
-                  catch (_: Exception) { null }
-                }
-                if (bmp != null) {
-                  AndroidView(factory = { c -> android.widget.ImageView(c).apply {
-                    scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
-                    setImageBitmap(bmp); clipToOutline = true
-                  }}, modifier = Modifier.size(56.dp))
-                }
+  CompositionLocalProvider(LocalTextSelectionColors provides selection) {
+    if (isUser) UserBubble(message, ctx, showMenu, { showMenu = it }, onEdit, onRetry, onCompact, onFork)
+    else AssistantBubble(message, ctx, showMenu, { showMenu = it }, onRetry, onCompact, onFork)
+  }
+}
+
+// ── User bubble: right-aligned, 75% width, tinted primary bg, borderRadius 16 ──
+
+@Composable
+private fun UserBubble(
+  message: ChatMessage, ctx: Context,
+  showMenu: Boolean, onShowMenu: (Boolean) -> Unit,
+  onEdit: (() -> Unit)?, onRetry: (() -> Unit)?,
+  onCompact: (() -> Unit)?, onFork: (() -> Unit)?
+) {
+  val cs = MaterialTheme.colorScheme
+  val screenW = LocalConfiguration.current.screenWidthDp.dp
+  Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), horizontalArrangement = Arrangement.End) {
+    Surface(
+      shape = RoundedCornerShape(16.dp),
+      color = cs.primary.copy(alpha = 0.15f),
+      modifier = Modifier.widthIn(max = screenW * 0.75f)
+    ) {
+      Column(Modifier.padding(12.dp)) {
+        if (message.imageUris.isNotEmpty()) {
+          Row(Modifier.padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            message.imageUris.forEach { uri ->
+              val bmp = remember(uri) {
+                try { android.provider.MediaStore.Images.Media.getBitmap(ctx.contentResolver, android.net.Uri.parse(uri)) }
+                catch (_: Exception) { null }
+              }
+              if (bmp != null) {
+                AndroidView(factory = { c -> android.widget.ImageView(c).apply {
+                  scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
+                  setImageBitmap(bmp); clipToOutline = true
+                  outlineProvider = object : android.view.ViewOutlineProvider() {
+                    override fun getOutline(v: android.view.View, o: android.graphics.Outline) { o.setRoundRect(0, 0, v.width, v.height, 24f) }
+                  }
+                }}, modifier = Modifier.size(64.dp))
               }
             }
           }
-          SelectionContainer {
-            Text(message.content, color = MaterialTheme.colorScheme.onPrimary,
-              modifier = Modifier.padding(12.dp), style = MaterialTheme.typography.bodyMedium)
-          }
-          MessageMenu(message, showMenu, { showMenu = it }, ctx, onEdit, onRetry, onCompact, onFork)
         }
-      }
-    }
-  } else {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
-      Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceVariant,
-        modifier = Modifier.widthIn(max = 480.dp)) {
-        Column(Modifier.padding(bottom = 4.dp)) {
-
-          if (message.reasoning.isNotEmpty()) {
-            message.reasoning.forEachIndexed { idx, block ->
-              val isLast = idx == message.reasoning.lastIndex
-              val isStreaming = isLast && !message.isReasoningDone
-              ReasoningBlock(block, isStreaming)
-            }
-          }
-
-          if (message.toolCalls.isNotEmpty()) {
-            ToolCallsBlock(message.toolCalls, message.toolResults)
-          }
-
-          if (message.locationData != null && message.content.isNotBlank()) {
-            key(message.locationData) {
-              com.aiope2.feature.chat.location.LocationCard(
-                latitude = message.locationData.latitude, longitude = message.locationData.longitude,
-                altitude = message.locationData.altitude, speed = message.locationData.speed,
-                bearing = message.locationData.bearing, accuracy = message.locationData.accuracy
-              )
-            }
-          }
-
-          if (message.content.isNotBlank()) {
-            val textColor = MaterialTheme.colorScheme.onSurface.toArgb()
-            val content = message.content.trimEnd()
-            AndroidView(
-              factory = { context ->
-                AFMInitializer.init(context, null, null, null)
-                val density = context.resources.displayMetrics.density
-                val styles = MarkdownStyles.getDefaultStyles()
-                  .codeStyle(com.fluid.afm.styles.CodeStyle.create()
-                    .codeFontColor(0xFFE0E0E0.toInt())
-                    .codeBackgroundColor(0xFF1E1E1E.toInt())
-                    .titleFontColor(0xFF9CDCFE.toInt())
-                    .borderColor(0xFF3C3C3C.toInt())
-                    .inlineFontColor(0xFFCE9178.toInt())
-                    .inlineCodeBackgroundColor(0xFF2D2D2D.toInt()))
-                val ts = styles.tableStyle()
-                  .bodyFontSize(11f * density)
-                  .headerFontSize(11f * density)
-                  .titleFontSize(11f * density)
-                  .fontColor(0xFFE0E0E0.toInt())
-                  .titleFontColor(0xFFAAAAAA.toInt())
-                  .titleBackgroundColor(0xFF333340.toInt())
-                  .headerBackgroundColor(0xFF252525.toInt())
-                  .bodyBackgroundColor(0xFF1E1E1E.toInt())
-                  .borderColor(0xFF3C3C3C.toInt())
-                styles.tableStyle(ts)
-                PrinterMarkDownTextView(context).apply {
-                  init(styles, null)
-                  setTextColor(textColor)
-                  textSize = 14f
-                  setPadding(32, 16, 32, 16)
-                  tag = ""
-                  viewTreeObserver.addOnGlobalLayoutListener {
-                    val l = layout ?: return@addOnGlobalLayoutListener
-                    val contentH = l.getLineBottom(l.lineCount - 1) + paddingTop + paddingBottom
-                    if (measuredHeight > contentH + 50) {
-                      layoutParams?.let { lp ->
-                        lp.height = contentH
-                        layoutParams = lp
-                      }
-                    }
-                  }
-                }
-              },
-              update = { tv ->
-                val prev = tv.tag as? String ?: ""
-                if (content != prev) {
-                  tv.tag = content
-                  try {
-                    tv.setMarkdownText(content)
-                    if (tv.text.isNullOrEmpty() && content.isNotEmpty()) tv.text = content
-                  } catch (_: Exception) { tv.text = content }
-                  // Trim trailing whitespace
-                  val txt = tv.text
-                  if (txt != null) {
-                    val len = txt.length
-                    var i = len
-                    while (i > 0 && (txt[i - 1] == '\n' || txt[i - 1] == '\u00A0' || txt[i - 1] == ' ')) i--
-                    if (i < len) tv.text = txt.subSequence(0, i)
-                  }
-                }
-              },              modifier = Modifier.fillMaxWidth().wrapContentHeight()
-            )
-            // Quick copy button
-            Box(Modifier.fillMaxWidth().padding(end = 8.dp), contentAlignment = Alignment.CenterEnd) {
-              IconButton(onClick = {
-                val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                cm.setPrimaryClip(ClipData.newPlainText("message", message.content))
-                Toast.makeText(ctx, "Copied", Toast.LENGTH_SHORT).show()
-              }, modifier = Modifier.size(24.dp)) {
-                Icon(Icons.Default.ContentCopy, "Copy", modifier = Modifier.size(14.dp),
-                  tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
-              }
-            }
-          }
-
-          MessageMenu(message, showMenu, { showMenu = it }, ctx, onEdit, onRetry, onCompact, onFork)
+        SelectionContainer {
+          Text(message.content, color = cs.onSurface,
+            fontSize = 15.5.sp, lineHeight = 23.sp,
+            style = MaterialTheme.typography.bodyMedium)
         }
       }
     }
   }
-  } // CompositionLocalProvider
+  // User actions row
+  Row(Modifier.fillMaxWidth().padding(end = 16.dp, bottom = 2.dp), horizontalArrangement = Arrangement.End) {
+    MessageMenu(message, showMenu, onShowMenu, ctx, onEdit, onRetry, onCompact, onFork)
+  }
+}
+
+// ── Assistant bubble: full-width, no background, action row below ──
+
+@Composable
+private fun AssistantBubble(
+  message: ChatMessage, ctx: Context,
+  showMenu: Boolean, onShowMenu: (Boolean) -> Unit,
+  onRetry: (() -> Unit)?, onCompact: (() -> Unit)?, onFork: (() -> Unit)?
+) {
+  val cs = MaterialTheme.colorScheme
+  Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)) {
+
+    // Reasoning blocks
+    if (message.reasoning.isNotEmpty()) {
+      message.reasoning.forEachIndexed { idx, block ->
+        ReasoningBlock(block, idx == message.reasoning.lastIndex && !message.isReasoningDone)
+        Spacer(Modifier.height(8.dp))
+      }
+    }
+
+    // Tool calls
+    if (message.toolCalls.isNotEmpty()) {
+      ToolCallsBlock(message.toolCalls, message.toolResults)
+      Spacer(Modifier.height(8.dp))
+    }
+
+    // Location
+    if (message.locationData != null && message.content.isNotBlank()) {
+      key(message.locationData) {
+        com.aiope2.feature.chat.location.LocationCard(
+          latitude = message.locationData.latitude, longitude = message.locationData.longitude,
+          altitude = message.locationData.altitude, speed = message.locationData.speed,
+          bearing = message.locationData.bearing, accuracy = message.locationData.accuracy
+        )
+      }
+    }
+
+    // Content
+    if (message.content.isNotBlank()) {
+      val textColor = cs.onSurface.toArgb()
+      val content = message.content.trimEnd()
+      val primaryArgb = cs.primary.toArgb()
+      AndroidView(
+        factory = { context ->
+          AFMInitializer.init(context, null, null, null)
+          val density = context.resources.displayMetrics.density
+          // Primary-tinted code block colors
+          val codeBg = blendColor(primaryArgb, cs.surface.toArgb(), 0.06f)
+          val codeHeaderBg = blendColor(primaryArgb, cs.surface.toArgb(), 0.16f)
+          val styles = MarkdownStyles.getDefaultStyles()
+            .codeStyle(com.fluid.afm.styles.CodeStyle.create()
+              .codeFontColor(0xFFE0E0E0.toInt())
+              .codeBackgroundColor(codeBg)
+              .titleFontColor(cs.onSurface.copy(alpha = 0.7f).toArgb())
+              .borderColor(cs.outlineVariant.copy(alpha = 0.2f).toArgb())
+              .inlineFontColor(0xFFCE9178.toInt())
+              .inlineCodeBackgroundColor(0x1FFFFFFF.toInt()))
+          val tableBorder = cs.outlineVariant.copy(alpha = 0.22f).toArgb()
+          val tableHeaderBg = blendColor(primaryArgb, cs.surface.toArgb(), 0.14f)
+          val ts = styles.tableStyle()
+            .bodyFontSize(11f * density)
+            .headerFontSize(11f * density)
+            .titleFontSize(11f * density)
+            .fontColor(cs.onSurface.toArgb())
+            .titleFontColor(cs.onSurface.copy(alpha = 0.7f).toArgb())
+            .titleBackgroundColor(codeHeaderBg)
+            .headerBackgroundColor(tableHeaderBg)
+            .bodyBackgroundColor(codeBg)
+            .borderColor(tableBorder)
+          styles.tableStyle(ts)
+          PrinterMarkDownTextView(context).apply {
+            init(styles, null)
+            setTextColor(textColor)
+            textSize = 15.5f
+            setLineSpacing(0f, 1.5f)
+            setPadding(0, 8, 0, 8)
+            tag = ""
+            viewTreeObserver.addOnGlobalLayoutListener {
+              val l = layout ?: return@addOnGlobalLayoutListener
+              val contentH = l.getLineBottom(l.lineCount - 1) + paddingTop + paddingBottom
+              if (measuredHeight > contentH + 50) {
+                layoutParams?.let { lp -> lp.height = contentH; layoutParams = lp }
+              }
+            }
+          }
+        },
+        update = { tv ->
+          val prev = tv.tag as? String ?: ""
+          if (content != prev) {
+            tv.tag = content
+            try {
+              tv.setMarkdownText(content)
+              if (tv.text.isNullOrEmpty() && content.isNotEmpty()) tv.text = content
+            } catch (_: Exception) { tv.text = content }
+            val txt = tv.text
+            if (txt != null) {
+              val len = txt.length; var i = len
+              while (i > 0 && (txt[i - 1] == '\n' || txt[i - 1] == '\u00A0' || txt[i - 1] == ' ')) i--
+              if (i < len) tv.text = txt.subSequence(0, i)
+            }
+          }
+        },
+        modifier = Modifier.fillMaxWidth().wrapContentHeight()
+      )
+    }
+
+    // Action row: copy + retry + menu
+    Row(
+      Modifier.fillMaxWidth().padding(top = 4.dp),
+      horizontalArrangement = Arrangement.spacedBy(6.dp),
+      verticalAlignment = Alignment.CenterVertically
+    ) {
+      if (message.content.isNotBlank()) {
+        ActionIcon(Icons.Default.ContentCopy, "Copy") {
+          val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+          cm.setPrimaryClip(ClipData.newPlainText("message", message.content))
+          Toast.makeText(ctx, "Copied", Toast.LENGTH_SHORT).show()
+        }
+      }
+      if (onRetry != null) ActionIcon(Icons.Default.Refresh, "Retry") { onRetry() }
+      Spacer(Modifier.weight(1f))
+      MessageMenu(message, showMenu, onShowMenu, ctx, null, onRetry, onCompact, onFork)
+    }
+  }
 }
 
 @Composable
+private fun ActionIcon(icon: androidx.compose.ui.graphics.vector.ImageVector, desc: String, onClick: () -> Unit) {
+  IconButton(onClick = onClick, modifier = Modifier.size(28.dp)) {
+    Icon(icon, desc, modifier = Modifier.size(16.dp),
+      tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+  }
+}
+
+// ── Reasoning block: primaryContainer bg, shimmer, collapsible ──
+
+@Composable
 private fun ReasoningBlock(reasoning: String, isStreaming: Boolean) {
-  var expanded by remember { mutableStateOf(isStreaming) }
-  LaunchedEffect(isStreaming) { if (!isStreaming) expanded = false }
+  val cs = MaterialTheme.colorScheme
+  var expanded by remember { mutableStateOf(true) }
+  LaunchedEffect(isStreaming) { if (!isStreaming && reasoning.length > 200) expanded = false }
+
   Surface(
-    modifier = Modifier.fillMaxWidth().padding(8.dp, 8.dp, 8.dp, 0.dp).clickable { expanded = !expanded },
-    shape = RoundedCornerShape(8.dp),
-    color = MaterialTheme.colorScheme.surfaceVariant,
-    tonalElevation = 2.dp
+    modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded },
+    shape = RoundedCornerShape(16.dp),
+    color = cs.primaryContainer.copy(alpha = 0.25f)
   ) {
-    Column(Modifier.padding(10.dp)) {
+    Column(Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
       Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(if (expanded) "▾ " else "▸ ", style = MaterialTheme.typography.labelSmall,
-          color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text("Thinking", style = MaterialTheme.typography.labelSmall,
-          color = MaterialTheme.colorScheme.onSurfaceVariant)
-        if (isStreaming) LoadingDots()
+        Text(if (expanded) "▾" else "▸", fontSize = 12.sp, color = cs.onSurfaceVariant)
+        Spacer(Modifier.width(4.dp))
+        if (isStreaming) ShimmerText("Thinking…", cs) else Text("Thinking", fontSize = 13.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.W700, color = cs.onSurfaceVariant)
+        if (isStreaming) { Spacer(Modifier.width(6.dp)); LoadingDots() }
       }
       AnimatedVisibility(visible = expanded) {
         SelectionContainer {
-          Text(reasoning, fontSize = 12.sp, lineHeight = 16.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+          Text(reasoning, fontSize = 12.5.sp, lineHeight = 16.5.sp,
+            color = cs.onSurfaceVariant.copy(alpha = 0.7f),
             modifier = Modifier.padding(top = 6.dp))
         }
       }
@@ -217,48 +274,78 @@ private fun ReasoningBlock(reasoning: String, isStreaming: Boolean) {
 }
 
 @Composable
-private fun LoadingDots() {
-  val transition = rememberInfiniteTransition(label = "dots")
-  val dot by transition.animateFloat(
-    initialValue = 0f, targetValue = 4f,
-    animationSpec = infiniteRepeatable(tween(800, easing = LinearEasing), RepeatMode.Restart),
-    label = "dots"
+private fun ShimmerText(text: String, cs: ColorScheme) {
+  val transition = rememberInfiniteTransition(label = "shimmer")
+  val offset by transition.animateFloat(
+    initialValue = -1f, targetValue = 2f,
+    animationSpec = infiniteRepeatable(tween(1200, easing = LinearEasing)), label = "shimmer"
   )
-  Text(".".repeat(dot.toInt().coerceIn(0, 3)), style = MaterialTheme.typography.labelSmall,
-    color = MaterialTheme.colorScheme.onSurfaceVariant)
+  Text(text, fontSize = 13.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.W700,
+    color = cs.onSurfaceVariant,
+    modifier = Modifier.graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
+      .drawWithContent {
+        drawContent()
+        drawRect(
+          brush = Brush.horizontalGradient(
+            colors = listOf(Color.Transparent, Color.White.copy(alpha = 0.35f), Color.Transparent),
+            startX = size.width * offset, endX = size.width * (offset + 0.4f)
+          ), blendMode = BlendMode.SrcAtop
+        )
+      }
+  )
 }
 
 @Composable
+private fun LoadingDots() {
+  val transition = rememberInfiniteTransition(label = "dots")
+  val phase by transition.animateFloat(
+    initialValue = 0f, targetValue = 1f,
+    animationSpec = infiniteRepeatable(tween(1100, easing = LinearEasing)), label = "dots"
+  )
+  val cs = MaterialTheme.colorScheme
+  Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+    repeat(3) { i ->
+      val wave = ((kotlin.math.sin((phase + i * 0.22f) * 2 * Math.PI) + 1) / 2).toFloat()
+      Box(Modifier.size(7.dp)
+        .graphicsLayer(scaleX = 0.85f + 0.15f * wave, scaleY = 0.85f + 0.15f * wave, alpha = 0.45f + 0.45f * wave)
+        .drawWithContent { drawCircle(cs.primary) })
+    }
+  }
+}
+
+// ── Tool calls: primaryContainer bg, borderRadius 16 ──
+
+@Composable
 private fun ToolCallsBlock(calls: List<String>, results: List<String>) {
-  Column(Modifier.fillMaxWidth().padding(8.dp, 4.dp, 8.dp, 0.dp)) {
+  val cs = MaterialTheme.colorScheme
+  Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
     for (i in calls.indices) {
-      Surface(
-        shape = RoundedCornerShape(6.dp),
-        color = Color(0xFF1A3A1A),
-        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
-      ) {
-        Text("${calls[i]}", fontSize = 12.sp, color = Color(0xFF88FF88),
-          modifier = Modifier.padding(8.dp, 4.dp), fontFamily = FontFamily.Monospace)
-      }
-      if (i < results.size) {
-        var resultExpanded by remember { mutableStateOf(false) }
-        val result = results[i]
-        val preview = if (result.length > 120 && !resultExpanded) result.take(120) + "..." else result
-        Surface(
-          shape = RoundedCornerShape(6.dp),
-          color = Color(0xFF1C1B1F),
-          modifier = Modifier.fillMaxWidth().padding(start = 8.dp, top = 1.dp, bottom = 4.dp)
-            .clickable { resultExpanded = !resultExpanded }
-        ) {
-          SelectionContainer {
-            Text(preview, fontSize = 11.sp, color = Color(0xFFB0B0B0),
-              modifier = Modifier.padding(8.dp, 4.dp), fontFamily = FontFamily.Monospace, lineHeight = 14.sp)
+      Surface(shape = RoundedCornerShape(16.dp), color = cs.primaryContainer.copy(alpha = 0.25f),
+        modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+          Text(calls[i], fontSize = 13.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.W700,
+            color = cs.onSurface, fontFamily = FontFamily.Monospace)
+          if (i < results.size) {
+            var expanded by remember { mutableStateOf(false) }
+            val result = results[i]
+            val preview = if (result.length > 150 && !expanded) result.take(150) + "…" else result
+            Spacer(Modifier.height(6.dp))
+            Surface(shape = RoundedCornerShape(10.dp),
+              color = if (MaterialTheme.colorScheme.surface == Color(0xFF121213)) Color.White.copy(alpha = 0.1f) else Color(0xFFF7F7F9),
+              modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded }) {
+              SelectionContainer {
+                Text(preview, fontSize = 12.sp, lineHeight = 16.sp, color = cs.onSurfaceVariant,
+                  modifier = Modifier.padding(10.dp), fontFamily = FontFamily.Monospace)
+              }
+            }
           }
         }
       }
     }
   }
 }
+
+// ── Menu ──
 
 @Composable
 private fun MessageMenu(
@@ -267,11 +354,10 @@ private fun MessageMenu(
   onCompact: (() -> Unit)?, onFork: (() -> Unit)?
 ) {
   val isUser = message.role == Role.USER
-  val iconTint = if (isUser) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.6f)
-                 else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-  Box(Modifier.fillMaxWidth().padding(end = 4.dp), contentAlignment = Alignment.CenterEnd) {
+  Box(contentAlignment = Alignment.CenterEnd) {
     IconButton(onClick = { onShowMenu(true) }, modifier = Modifier.size(28.dp)) {
-      Icon(Icons.Default.MoreVert, "More", modifier = Modifier.size(16.dp), tint = iconTint)
+      Icon(Icons.Default.MoreVert, "More", modifier = Modifier.size(16.dp),
+        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
     }
     DropdownMenu(expanded = showMenu, onDismissRequest = { onShowMenu(false) }) {
       if (isUser) DropdownMenuItem(text = { Text("Copy") }, onClick = {
@@ -286,11 +372,19 @@ private fun MessageMenu(
       if (onFork != null) DropdownMenuItem(text = { Text("Fork") }, onClick = { onShowMenu(false); onFork() })
       if (message.content.contains("\\documentclass") || message.content.contains("\\begin{document}")) {
         DropdownMenuItem(text = { Text("Export PDF") }, onClick = {
-          onShowMenu(false)
-          LatexPdfExporter.export(ctx, message.content)
+          onShowMenu(false); LatexPdfExporter.export(ctx, message.content)
         })
       }
     }
   }
 }
 
+// ── Utility ──
+
+private fun blendColor(fg: Int, bg: Int, alpha: Float): Int {
+  val a = alpha
+  val r = ((fg shr 16 and 0xFF) * a + (bg shr 16 and 0xFF) * (1 - a)).toInt()
+  val g = ((fg shr 8 and 0xFF) * a + (bg shr 8 and 0xFF) * (1 - a)).toInt()
+  val b = ((fg and 0xFF) * a + (bg and 0xFF) * (1 - a)).toInt()
+  return (0xFF shl 24) or (r shl 16) or (g shl 8) or b
+}

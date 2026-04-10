@@ -73,7 +73,7 @@ $body
 </body></html>"""
   }
 
-  private fun transpileToHtml(latex: String): String {
+  internal fun transpileToHtml(latex: String): String {
     var s = latex
     s = s.replace(Regex("(?s).*?\\\\begin\\{document\\}\\s*"), "")
     s = s.replace(Regex("\\\\end\\{document\\}.*$"), "")

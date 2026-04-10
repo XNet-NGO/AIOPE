@@ -29,4 +29,6 @@ dependencies {
 
   implementation(libs.kotlinx.coroutines.android)
   api(libs.androidx.navigation.compose)
+
+  testImplementation("junit:junit:4.13.2")
 }

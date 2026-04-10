@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -215,10 +216,10 @@ private fun MessageList(messages: List<ChatMessage>, isStreaming: Boolean = fals
         Spacer(Modifier.height(8.dp))
       }
     }
-    // Scroll nav: vertical on right side
+    // Scroll nav: right center of screen
     if (messages.size > 2) {
       Column(
-        modifier = Modifier.align(Alignment.BottomEnd).padding(end = 8.dp, bottom = 48.dp),
+        modifier = Modifier.align(Alignment.CenterEnd).padding(end = 4.dp),
         verticalArrangement = Arrangement.spacedBy(0.dp)
       ) {
         val btnMod = Modifier.size(28.dp)
@@ -231,7 +232,11 @@ private fun MessageList(messages: List<ChatMessage>, isStreaming: Boolean = fals
           Icon(Icons.Default.FiberManualRecord, "Center", modifier = Modifier.size(8.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Spacer(Modifier.height(14.dp))
-        IconButton(onClick = { scope.launch { listState.animateScrollToItem(messages.size - 1) } }, modifier = btnMod, colors = btnColors) {
+        IconButton(onClick = { scope.launch {
+          listState.scrollToItem(messages.size - 1)
+          // Scroll past the last item to reach absolute bottom
+          listState.scroll { scrollBy(10000f) }
+        } }, modifier = btnMod, colors = btnColors) {
           Text("\u25BC", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
       }
@@ -321,7 +326,14 @@ private fun ChatInput(onSend: (String, List<String>) -> Unit, onStop: () -> Unit
       value = text, onValueChange = { text = it },
       modifier = Modifier.fillMaxWidth(),
       placeholder = { Text("Ask AI...") },
-      maxLines = 6, enabled = !isStreaming
+      maxLines = 6, enabled = !isStreaming,
+      colors = OutlinedTextFieldDefaults.colors(
+        unfocusedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.06f),
+        focusedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.06f),
+        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f),
+        focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)
+      ),
+      shape = RoundedCornerShape(16.dp)
     )
     Spacer(Modifier.height(4.dp))
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

@@ -2,11 +2,11 @@ package com.aiope2.core.designsystem.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Kelivo-inspired palette
-val PRIMARY = Color(0xFF4D5C92)
-val PRIMARY_DARK = Color(0xFFB6C4FF)
-val PRIMARY_CONTAINER_DARK = Color(0xFF354479)
-val PRIMARY_CONTAINER_LIGHT = Color(0xFFDCE1FF)
+// Vivid dark green palette
+val PRIMARY = Color(0xFF166C47)
+val PRIMARY_DARK = Color(0xFF87D7AA)
+val PRIMARY_CONTAINER_DARK = Color(0xFF1B4D35)
+val PRIMARY_CONTAINER_LIGHT = Color(0xFFB8F0D2)
 val BACKGROUND_DARK = Color(0xFF121213)
 val BACKGROUND_LIGHT = Color(0xFFF7F7F7)
 val SURFACE_DARK = Color(0xFF121213)

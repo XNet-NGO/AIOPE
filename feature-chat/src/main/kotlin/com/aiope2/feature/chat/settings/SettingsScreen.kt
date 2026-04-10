@@ -129,22 +129,6 @@ private fun ProfileList(profiles: List<ProviderProfile>, activeId: String, provi
         )
         HorizontalDivider()
       }
-      item {
-        val geoKey = remember { mutableStateOf(providerStore.getGeoapifyKey()) }
-        ListItem(
-          headlineContent = { Text("Geoapify API Key") },
-          supportingContent = {
-            androidx.compose.material3.OutlinedTextField(
-              value = geoKey.value, onValueChange = { geoKey.value = it; providerStore.setGeoapifyKey(it) },
-              placeholder = { Text("Enter Geoapify key for place search") },
-              singleLine = true,
-              textStyle = MaterialTheme.typography.bodySmall,
-              modifier = Modifier.fillMaxWidth()
-            )
-          }
-        )
-        HorizontalDivider()
-      }
       items(profiles) { p ->
         val builtin = ProviderTemplates.byId[p.builtinId]
         ListItem(

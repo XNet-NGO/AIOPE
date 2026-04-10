@@ -22,6 +22,23 @@ class ProviderStore @Inject constructor(@ApplicationContext ctx: Context) {
         selectedModelId = "llama/qwen3.5-2b-heretic", isActive = true
       )
       save(default); setActive(default.id)
+      // Auto-fetch models in background
+      Thread {
+        try {
+          val base = default.effectiveApiBase().trimEnd('/')
+          val url = if (base.endsWith("/v1")) "$base/models" else "$base/v1/models"
+          val conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+          conn.setRequestProperty("Authorization", "Bearer ${default.apiKey}")
+          conn.connectTimeout = 10_000; conn.readTimeout = 10_000
+          val body = conn.inputStream.bufferedReader().readText()
+          conn.disconnect()
+          val data = org.json.JSONObject(body).optJSONArray("data") ?: return@Thread
+          val models = (0 until data.length()).map { val o = data.getJSONObject(it)
+            ModelDef(o.getString("id"), o.optString("name", o.getString("id")), o.optInt("context_window"))
+          }.sortedBy { it.id }
+          if (models.isNotEmpty()) saveModelCache(default.builtinId, models)
+        } catch (_: Exception) {}
+      }.start()
     }
   }
 

@@ -133,7 +133,9 @@ private fun ProfileList(profiles: List<ProviderProfile>, activeId: String, provi
         val builtin = ProviderTemplates.byId[p.builtinId]
         ListItem(
           headlineContent = { Text("${p.label.ifBlank { builtin?.displayName ?: "Custom" }}") },
-          supportingContent = { Text(p.selectedModelId.ifBlank { "no model" }, style = MaterialTheme.typography.bodySmall) },
+          supportingContent = { Text(
+            "${p.effectiveApiBase().removePrefix("https://").removePrefix("http://").take(40)}  •  ${p.selectedModelId.ifBlank { "no model" }}",
+            style = MaterialTheme.typography.bodySmall) },
           trailingContent = { if (p.id == activeId) Text("✔", color = MaterialTheme.colorScheme.primary) },
           modifier = Modifier.combinedClickable(onClick = { onSelect(p) }, onLongClick = { onEdit(p) })
         )
@@ -187,7 +189,7 @@ private fun ProfileEditor(profile: ProviderProfile, store: ProviderStore,
       Section("Provider")
       Field("Name", p.label) { p = p.copy(label = it) }
       Field("Base URL", p.apiBase, builtin?.apiBase ?: "https://api.example.com/v1") { p = p.copy(apiBase = it) }
-      Field("API Key", p.apiKey, builtin?.apiKeyHint ?: "API key") { p = p.copy(apiKey = it) }
+      Field("API Key", p.apiKey, builtin?.apiKeyHint ?: "API key", obfuscate = true) { p = p.copy(apiKey = it) }
 
       // Model selector
       Section("Model")
@@ -323,9 +325,10 @@ private fun ProfileEditor(profile: ProviderProfile, store: ProviderStore,
   Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
   HorizontalDivider(Modifier.padding(vertical = 4.dp))
 }
-@Composable private fun Field(label: String, value: String, placeholder: String = "", onChange: (String) -> Unit) {
+@Composable private fun Field(label: String, value: String, placeholder: String = "", obfuscate: Boolean = false, onChange: (String) -> Unit) {
   OutlinedTextField(value = value, onValueChange = onChange, label = { Text(label) },
     modifier = Modifier.fillMaxWidth(), singleLine = true,
+    visualTransformation = if (obfuscate) androidx.compose.ui.text.input.PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
     placeholder = if (placeholder.isNotBlank()) {{ Text(placeholder) }} else null)
   Spacer(Modifier.height(8.dp))
 }

@@ -565,17 +565,37 @@ class ChatViewModel @Inject constructor(
       "Opened: $uri"
     } catch (e: Exception) { "Error: ${e.message}" }
     "fetch_url" -> try {
-      val url = java.net.URL(args["url"].toString())
+      val fetchUrl = java.net.URL(args["url"].toString())
       val mode = args["mode"]?.toString() ?: "text"
-      val conn = url.openConnection() as java.net.HttpURLConnection
-      conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android) AIOPE2/1.0")
+      val conn = fetchUrl.openConnection() as java.net.HttpURLConnection
+      conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android) AIOPE/2.0")
       conn.connectTimeout = 15_000; conn.readTimeout = 15_000
       val ct = conn.contentType ?: ""
       val body = conn.inputStream.bufferedReader(Charsets.UTF_8).readText()
       conn.disconnect()
       val result = if (mode == "raw" || !ct.contains("html")) body
-        else android.text.Html.fromHtml(body.replace(Regex("<(script|style|nav|footer|header)[^>]*>[\\s\\S]*?</\\1>", RegexOption.IGNORE_CASE), ""), android.text.Html.FROM_HTML_MODE_COMPACT).toString().trim()
-      if (result.length > 8000) result.take(8000) + "\n...(truncated)" else result
+      else {
+        val base = "${fetchUrl.protocol}://${fetchUrl.host}"
+        // Extract images: <img src>, <meta og:image>
+        val imgs = mutableListOf<String>()
+        Regex("""<img[^>]+src=["']([^"']+)["'][^>]*(?:alt=["']([^"']*)["'])?""", RegexOption.IGNORE_CASE).findAll(body).forEach { m ->
+          val src = m.groupValues[1].let { if (it.startsWith("http")) it else if (it.startsWith("/")) "$base$it" else "$base/$it" }
+          if (src.matches(Regex(".*\\.(jpg|jpeg|png|gif|webp|svg)(\\?.*)?$", RegexOption.IGNORE_CASE)) || !src.contains(".js")) {
+            val alt = m.groupValues.getOrElse(2) { "" }.take(80)
+            imgs.add("![${alt.ifEmpty { "image" }}]($src)")
+          }
+        }
+        Regex("""<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']""", RegexOption.IGNORE_CASE).findAll(body).forEach { m ->
+          val src = m.groupValues[1].let { if (it.startsWith("http")) it else "$base$it" }
+          if (imgs.none { it.contains(src) }) imgs.add("![og:image]($src)")
+        }
+        // Extract text
+        val cleaned = body.replace(Regex("<(script|style|nav|footer|header)[^>]*>[\\s\\S]*?</\\1>", RegexOption.IGNORE_CASE), "")
+        val text = android.text.Html.fromHtml(cleaned, android.text.Html.FROM_HTML_MODE_COMPACT).toString().trim()
+        val imgSection = if (imgs.isNotEmpty()) imgs.distinct().take(10).joinToString("\n") + "\n\n" else ""
+        imgSection + text
+      }
+      if (result.length > 12000) result.take(12000) + "\n...(truncated)" else result
     } catch (e: Exception) { "Error: ${e.message}" }
     "query_data" -> try {
       val cat = args["category"]?.toString() ?: ""

@@ -1,4 +1,4 @@
-# AIOPE
+# AIOPE — Artificial Intelligence Operations
 
 **AI-powered terminal and assistant for Android** — a chat interface with tool use, a full Linux terminal, live data, location awareness, and native markdown rendering. Runs entirely on-device with any OpenAI-compatible API.
 
@@ -30,7 +30,7 @@ The AI can autonomously call tools in a loop — reasoning, executing, reading r
 A full terminal emulator with proot-based Ubuntu environment. Install packages with `apt`, run Python scripts, compile C code — all on your phone. The terminal panel sits alongside the chat in split view.
 
 ### Native Markdown Rendering
-Powered by [FluidMarkdown](https://github.com/xnet-admin-1/FluidMarkdown) — a native Compose renderer built on CommonMark + GFM:
+Powered by [UniversalMarkdown](https://github.com/XNet-NGO/UniversalMarkdown) — a native Compose renderer built on CommonMark + GFM:
 - Syntax-highlighted code blocks with copy button
 - GFM tables with header styling
 - LaTeX math (inline and block)
@@ -98,7 +98,7 @@ feature-chat/                 # Chat UI, ViewModel, tools, settings
 **Key components:**
 - `StreamingOrchestrator` — SSE parser with parallel tool call accumulation, reasoning extraction (`<think>`/`<thought>` tags + `reasoning_content` field), and automatic tool loop
 - `ChatViewModel` — conversation state, message persistence (Room), tool execution, auto-compact
-- `FluidMarkdown` — native Compose markdown renderer (AnnotatedString-based, no WebView)
+- `UniversalMarkdown` — native Compose markdown renderer (AnnotatedString-based, no WebView)
 - `TerminalSession` — proot-backed terminal with PTY, keyboard handling, and shell discovery
 
 ## UI Design
@@ -129,4 +129,25 @@ Dark green background (`#132E1F`) with black containers (`#0A0A0A`) for high con
 
 ## License
 
-Apache License 2.0
+AIOPE original code is licensed under the **Business Source License 1.1** (BSL 1.1).
+Free to use, not to modify or distribute. Converts to Apache 2.0 on 2030-04-10.
+
+(c) 2026 XNet Inc. — Joshua S. Doucette
+Contact: joshuadoucette@xnet.ngo | pr@xnet.ngo
+
+### Forked & Third-Party Code
+
+AIOPE builds on the following open-source projects, each under their original licenses:
+
+| Component | Source | License |
+|---|---|---|
+| App scaffold | [skydoves/chatgpt-android](https://github.com/skydoves/chatgpt-android) | Apache 2.0 |
+| Markdown base | [antgroup/FluidMarkdown](https://github.com/antgroup/FluidMarkdown) | Apache 2.0 |
+| Markwon | [noties/markwon](https://github.com/noties/markwon) | Apache 2.0 |
+| Terminal | [termux/termux-app](https://github.com/termux/termux-app) | GPL 3.0 |
+| MapLibre | [maplibre/maplibre-native](https://github.com/maplibre/maplibre-native) | BSD 2-Clause |
+| CommonMark | [commonmark/commonmark-java](https://github.com/commonmark/commonmark-java) | BSD 2-Clause |
+| Prism4j | [noties/Prism4j](https://github.com/noties/Prism4j) | Apache 2.0 |
+| JLatexMath | [opencollab/jlatexmath](https://github.com/opencollab/jlatexmath) | GPL 2.0+ |
+
+The BSL 1.1 applies only to XNet's original code. All forked and third-party components retain their original licenses.

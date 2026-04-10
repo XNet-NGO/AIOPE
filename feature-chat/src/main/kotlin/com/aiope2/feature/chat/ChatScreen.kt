@@ -106,6 +106,7 @@ private fun ChatContent(
   var showModelPicker by remember { mutableStateOf(false) }
   Column(modifier) {
     // ── Toolbar ──
+    Surface(color = Color(0xFF0A0A0A)) {
     Box(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp)) {
       // Left: Chats
       TextButton(onClick = onChats, modifier = Modifier.align(Alignment.CenterStart),
@@ -147,7 +148,8 @@ private fun ChatContent(
         }
       }
     }
-    HorizontalDivider()
+    }
+    HorizontalDivider(color = Color(0xFF1A1A1A))
 
     // ── Messages or empty state ──
     if (messages.isEmpty()) {
@@ -161,10 +163,12 @@ private fun ChatContent(
         modifier = Modifier.weight(1f))
     }
 
-    HorizontalDivider()
+    HorizontalDivider(color = Color(0xFF1A1A1A))
 
     // ── Input ──
+    Surface(color = Color(0xFF0A0A0A)) {
     ChatInput(onSend = onSend, onStop = onStop, isStreaming = isStreaming, editText = editText, onEditTextChange = onEditTextChange)
+    }
   }
 }
 

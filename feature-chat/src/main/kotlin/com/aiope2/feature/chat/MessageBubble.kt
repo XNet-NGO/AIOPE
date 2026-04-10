@@ -103,74 +103,61 @@ fun MessageBubble(
           }
 
           if (message.content.isNotBlank()) {
-            val textColor = MaterialTheme.colorScheme.onSurface.toArgb()
             val content = message.content.trimEnd()
-            AndroidView(
-              factory = { context ->
-                AFMInitializer.init(context, null, null, null)
-                val density = context.resources.displayMetrics.density
-                val styles = MarkdownStyles.getDefaultStyles()
-                  .codeStyle(com.fluid.afm.styles.CodeStyle.create()
-                    .codeFontColor(0xFFE0E0E0.toInt())
-                    .codeBackgroundColor(0xFF1E1E1E.toInt())
-                    .titleFontColor(0xFF9CDCFE.toInt())
+            val hasComplexMarkdown = content.contains("```") || content.contains("| ") || content.contains("<table")
+            if (hasComplexMarkdown) {
+              // Rich markdown rendering (tables, code blocks) — not selectable
+              val textColor = MaterialTheme.colorScheme.onSurface.toArgb()
+              AndroidView(
+                factory = { context ->
+                  AFMInitializer.init(context, null, null, null)
+                  val density = context.resources.displayMetrics.density
+                  val styles = MarkdownStyles.getDefaultStyles()
+                    .codeStyle(com.fluid.afm.styles.CodeStyle.create()
+                      .codeFontColor(0xFFE0E0E0.toInt())
+                      .codeBackgroundColor(0xFF1E1E1E.toInt())
+                      .titleFontColor(0xFF9CDCFE.toInt())
+                      .borderColor(0xFF3C3C3C.toInt())
+                      .inlineFontColor(0xFFCE9178.toInt())
+                      .inlineCodeBackgroundColor(0xFF2D2D2D.toInt()))
+                  val ts = styles.tableStyle()
+                    .bodyFontSize(11f * density)
+                    .headerFontSize(11f * density)
+                    .titleFontSize(11f * density)
+                    .fontColor(0xFFE0E0E0.toInt())
+                    .titleFontColor(0xFFAAAAAA.toInt())
+                    .titleBackgroundColor(0xFF2A2A2A.toInt())
+                    .headerBackgroundColor(0xFF252525.toInt())
+                    .bodyBackgroundColor(0xFF1E1E1E.toInt())
                     .borderColor(0xFF3C3C3C.toInt())
-                    .inlineFontColor(0xFFCE9178.toInt())
-                    .inlineCodeBackgroundColor(0xFF2D2D2D.toInt()))
-                val ts = styles.tableStyle()
-                  .bodyFontSize(11f * density)
-                  .headerFontSize(11f * density)
-                  .titleFontSize(11f * density)
-                  .fontColor(0xFFE0E0E0.toInt())
-                  .titleFontColor(0xFFAAAAAA.toInt())
-                  .titleBackgroundColor(0xFF2A2A2A.toInt())
-                  .headerBackgroundColor(0xFF252525.toInt())
-                  .bodyBackgroundColor(0xFF1E1E1E.toInt())
-                  .borderColor(0xFF3C3C3C.toInt())
-                styles.tableStyle(ts)
-                // Use PrinterMarkDownTextView directly — it extends AppCompatTextView
-                val mdView = PrinterMarkDownTextView(context)
-                mdView.init(styles, null)
-                mdView.setTextColor(textColor)
-                mdView.textSize = 14f
-                mdView.setPadding(32, 16, 32, 16)
-                mdView.highlightColor = 0x664488FF.toInt()
-                mdView.tag = ""
-                // Wrap in a FrameLayout so we can intercept touch for selection
-                val frame = object : android.widget.FrameLayout(context) {
-                  private var downX = 0f
-                  private var downY = 0f
-                  override fun onInterceptTouchEvent(ev: android.view.MotionEvent): Boolean {
-                    return false // never intercept — let child handle everything
+                  styles.tableStyle(ts)
+                  PrinterMarkDownTextView(context).apply {
+                    init(styles, null)
+                    setTextColor(textColor)
+                    textSize = 14f
+                    setPadding(32, 16, 32, 16)
+                    tag = ""
                   }
-                }
-                frame.addView(mdView, android.view.ViewGroup.LayoutParams(
-                  android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                  android.view.ViewGroup.LayoutParams.WRAP_CONTENT))
-                // Enable selection on the actual text view
-                mdView.setTextIsSelectable(true)
-                frame.tag = ""
-                frame
-              },
-              update = { frame ->
-                val mdView = (frame as android.view.ViewGroup).getChildAt(0) as PrinterMarkDownTextView
-                val prev = frame.tag as? String ?: ""
-                if (content != prev) {
-                  frame.tag = content
-                  try {
-                    mdView.setMarkdownText(content)
-                    if (mdView.text.isNullOrEmpty() && content.isNotEmpty()) {
-                      mdView.text = content
-                    }
-                    // Re-enable selection after setText (it gets reset)
-                    mdView.setTextIsSelectable(true)
-                  } catch (e: Exception) {
-                    mdView.text = content
+                },
+                update = { tv ->
+                  val prev = tv.tag as? String ?: ""
+                  if (content != prev) {
+                    tv.tag = content
+                    try {
+                      tv.setMarkdownText(content)
+                      if (tv.text.isNullOrEmpty() && content.isNotEmpty()) tv.text = content
+                    } catch (_: Exception) { tv.text = content }
                   }
-                }
-              },
-              modifier = Modifier.fillMaxWidth().wrapContentHeight()
-            )
+                },
+                modifier = Modifier.fillMaxWidth().wrapContentHeight()
+              )
+            } else {
+              // Plain/simple markdown — selectable
+              SelectionContainer {
+                Text(content, color = MaterialTheme.colorScheme.onSurface,
+                  modifier = Modifier.padding(12.dp), style = MaterialTheme.typography.bodyMedium)
+              }
+            }
           }
 
           MessageMenu(message, showMenu, { showMenu = it }, ctx, onEdit, onRetry, onCompact, onFork)

@@ -33,7 +33,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import com.fluid.compose.FluidMarkdown
+import com.fluid.compose.UniversalMarkdown
 import com.fluid.compose.MarkdownTheme
 
 @Composable
@@ -148,7 +148,7 @@ private fun AssistantBubble(
     if (message.content.isNotBlank()) {
       val content = message.content.trimEnd()
       val mdTheme = rememberMarkdownTheme(cs)
-      FluidMarkdown(
+      UniversalMarkdown(
         content = content,
         theme = mdTheme,
         animateStreaming = true,
@@ -226,7 +226,7 @@ private fun ReasoningBlock(reasoning: String, isStreaming: Boolean) {
             textColor = cs.onSurfaceVariant.copy(alpha = 0.7f),
             headingColor = cs.onSurfaceVariant.copy(alpha = 0.7f),
           )
-          FluidMarkdown(
+          UniversalMarkdown(
             content = displayText,
             theme = reasoningTheme,
             modifier = Modifier.padding(top = 6.dp)

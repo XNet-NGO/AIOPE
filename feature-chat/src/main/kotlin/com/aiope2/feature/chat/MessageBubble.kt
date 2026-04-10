@@ -105,8 +105,6 @@ fun MessageBubble(
           if (message.content.isNotBlank()) {
             val textColor = MaterialTheme.colorScheme.onSurface.toArgb()
             val content = message.content.trimEnd()
-            // Long-press to copy entire response
-            val ctx2 = LocalContext.current
             AndroidView(
               factory = { context ->
                 AFMInitializer.init(context, null, null, null)
@@ -130,29 +128,44 @@ fun MessageBubble(
                   .bodyBackgroundColor(0xFF1E1E1E.toInt())
                   .borderColor(0xFF3C3C3C.toInt())
                 styles.tableStyle(ts)
-                PrinterMarkDownTextView(context).apply {
-                  init(styles, null)
-                  setTextColor(textColor)
-                  textSize = 14f
-                  setPadding(32, 16, 32, 16)
-                  setTextIsSelectable(true)
-                  isFocusable = true
-                  isFocusableInTouchMode = true
-                  highlightColor = 0x664488FF.toInt()
-                  tag = ""
+                // Use PrinterMarkDownTextView directly — it extends AppCompatTextView
+                val mdView = PrinterMarkDownTextView(context)
+                mdView.init(styles, null)
+                mdView.setTextColor(textColor)
+                mdView.textSize = 14f
+                mdView.setPadding(32, 16, 32, 16)
+                mdView.highlightColor = 0x664488FF.toInt()
+                mdView.tag = ""
+                // Wrap in a FrameLayout so we can intercept touch for selection
+                val frame = object : android.widget.FrameLayout(context) {
+                  private var downX = 0f
+                  private var downY = 0f
+                  override fun onInterceptTouchEvent(ev: android.view.MotionEvent): Boolean {
+                    return false // never intercept — let child handle everything
+                  }
                 }
+                frame.addView(mdView, android.view.ViewGroup.LayoutParams(
+                  android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                  android.view.ViewGroup.LayoutParams.WRAP_CONTENT))
+                // Enable selection on the actual text view
+                mdView.setTextIsSelectable(true)
+                frame.tag = ""
+                frame
               },
-              update = { tv ->
-                val prev = tv.tag as? String ?: ""
+              update = { frame ->
+                val mdView = (frame as android.view.ViewGroup).getChildAt(0) as PrinterMarkDownTextView
+                val prev = frame.tag as? String ?: ""
                 if (content != prev) {
-                  tv.tag = content
+                  frame.tag = content
                   try {
-                    tv.setMarkdownText(content)
-                    if (tv.text.isNullOrEmpty() && content.isNotEmpty()) {
-                      tv.text = content
+                    mdView.setMarkdownText(content)
+                    if (mdView.text.isNullOrEmpty() && content.isNotEmpty()) {
+                      mdView.text = content
                     }
+                    // Re-enable selection after setText (it gets reset)
+                    mdView.setTextIsSelectable(true)
                   } catch (e: Exception) {
-                    tv.text = content
+                    mdView.text = content
                   }
                 }
               },

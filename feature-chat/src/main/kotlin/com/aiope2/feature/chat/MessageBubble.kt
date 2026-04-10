@@ -124,7 +124,7 @@ fun MessageBubble(
                   .titleFontSize(11f * density)
                   .fontColor(0xFFE0E0E0.toInt())
                   .titleFontColor(0xFFAAAAAA.toInt())
-                  .titleBackgroundColor(0xFF2A2A2A.toInt())
+                  .titleBackgroundColor(0xFF333340.toInt())
                   .headerBackgroundColor(0xFF252525.toInt())
                   .bodyBackgroundColor(0xFF1E1E1E.toInt())
                   .borderColor(0xFF3C3C3C.toInt())

@@ -31,6 +31,8 @@ android {
     release {
       isShrinkResources = true
       isMinifyEnabled = true
+      signingConfig = signingConfigs.getByName("debug")
+      proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
     }
   }
 }

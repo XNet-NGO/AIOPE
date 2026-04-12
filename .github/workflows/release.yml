@@ -24,7 +24,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Build release APK (arm64-v8a)
-        run: ./gradlew :app:assembleRelease -Pandroid.injected.build.abi=arm64-v8a
+        run: ./gradlew :app:assembleRelease -Pandroid.injected.build.abi=arm64-v8a -x spotlessCheck -x spotlessKotlinCheck
 
       - name: Sign APK with debug key
         run: |

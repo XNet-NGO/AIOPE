@@ -11,123 +11,140 @@ import java.util.concurrent.TimeUnit
  */
 object ProotExecutor {
 
-    private const val TAG = "ProotExecutor"
-    @Volatile private var currentProcess: Process? = null
+  private const val TAG = "ProotExecutor"
 
-    fun exec(context: Context, command: String, timeoutMs: Long = 30_000): String {
-        val filesDir = context.filesDir.absolutePath
-        val rootfs = File(filesDir, "env/ubuntu")
-        val nativeLibDir = context.applicationInfo.nativeLibraryDir
+  @Volatile private var currentProcess: Process? = null
 
-        val prootBin = ProotBootstrap.findProotXed(context)
-            ?: return "Error: proot binary not found in $nativeLibDir"
-        if (!rootfs.isDirectory) return "Error: Ubuntu rootfs not installed. Run setup first."
+  fun exec(context: Context, command: String, timeoutMs: Long = 30_000): String {
+    val filesDir = context.filesDir.absolutePath
+    val rootfs = File(filesDir, "env/ubuntu")
+    val nativeLibDir = context.applicationInfo.nativeLibraryDir
 
-        val talloc = File(filesDir, "libtalloc.so.2")
-        if (!talloc.exists()) {
-            val src = File(nativeLibDir, "libtalloc.so")
-            if (src.exists()) src.inputStream().use { i -> talloc.outputStream().use { o -> i.copyTo(o) } }
+    val prootBin = ProotBootstrap.findProotXed(context)
+      ?: return "Error: proot binary not found in $nativeLibDir"
+    if (!rootfs.isDirectory) return "Error: Ubuntu rootfs not installed. Run setup first."
+
+    val talloc = File(filesDir, "libtalloc.so.2")
+    if (!talloc.exists()) {
+      val src = File(nativeLibDir, "libtalloc.so")
+      if (src.exists()) {
+        src.inputStream().use { i ->
+          talloc.outputStream().use { o -> i.copyTo(o) }
         }
-
-        File(filesDir, "tmp").mkdirs()
-        File(rootfs, "root").mkdirs()
-        // Ensure /etc/group has our GID to suppress "cannot find name for group ID" warning
-        val groupFile = File(rootfs, "etc/group")
-        if (groupFile.exists()) {
-          val content = groupFile.readText()
-          if (!content.contains(":1077:")) groupFile.appendText("android:x:1077:\n")
-        }
-
-        val args = buildProotArgs(rootfs, filesDir, command)
-        val env = buildProotEnv(filesDir, nativeLibDir)
-
-        Log.d(TAG, "exec: ${prootBin.name} ${args.take(5).joinToString(" ")}...")
-
-        return try {
-            val pb = ProcessBuilder(listOf(prootBin.absolutePath) + args)
-            pb.environment().clear()
-            pb.environment().putAll(env)
-            pb.redirectErrorStream(true)
-            val process = pb.start()
-            currentProcess = process
-
-            val output = ShellExecutor.readAll(process.inputStream, timeoutMs)
-            process.waitFor(timeoutMs, TimeUnit.MILLISECONDS)
-            currentProcess = null
-            val out = output.lines()
-                .filter { !it.startsWith("proot warning:") && !it.startsWith("proot info:") }
-                .joinToString("\n").trim()
-            if (out.length > 8000) out.take(8000) + "\n[truncated]"
-            else out.ifEmpty { "(no output, exit ${process.exitValue()})" }
-        } catch (e: Exception) {
-            currentProcess = null
-            Log.e(TAG, "exec failed", e)
-            "Error: ${e.message}"
-        }
+      }
     }
 
-    /** Kill any running proot process. */
-    fun cancel() {
-        currentProcess?.let {
-            Log.i(TAG, "Cancelling running proot process")
-            it.destroyForcibly()
-            currentProcess = null
-        }
+    File(filesDir, "tmp").mkdirs()
+    File(rootfs, "root").mkdirs()
+    // Ensure /etc/group has our GID to suppress "cannot find name for group ID" warning
+    val groupFile = File(rootfs, "etc/group")
+    if (groupFile.exists()) {
+      val content = groupFile.readText()
+      if (!content.contains(":1077:")) groupFile.appendText("android:x:1077:\n")
     }
 
-    private fun buildProotArgs(rootfs: File, filesDir: String, command: String): List<String> {
-        val args = mutableListOf("--kill-on-exit")
+    val args = buildProotArgs(rootfs, filesDir, command)
+    val env = buildProotEnv(filesDir, nativeLibDir)
 
-        fun bind(src: String, dst: String? = null) {
-            args.addAll(listOf("-b", if (dst != null) "$src:$dst" else src))
-        }
+    Log.d(TAG, "exec: ${prootBin.name} ${args.take(5).joinToString(" ")}...")
 
-        for (mnt in listOf("/apex", "/odm", "/product", "/system", "/system_ext", "/vendor",
-                           "/linkerconfig/ld.config.txt",
-                           "/linkerconfig/com.android.art/ld.config.txt")) {
-            val f = File(mnt)
-            if (f.exists()) bind(f.canonicalPath)
-        }
+    return try {
+      val pb = ProcessBuilder(listOf(prootBin.absolutePath) + args)
+      pb.environment().clear()
+      pb.environment().putAll(env)
+      pb.redirectErrorStream(true)
+      val process = pb.start()
+      currentProcess = process
 
-        bind("/dev")
-        bind("/dev/urandom", "/dev/random")
-        bind("/proc")
-        bind("/sys")
-        bind("/proc/self/fd", "/dev/fd")
-        bind(filesDir)
+      val output = ShellExecutor.readAll(process.inputStream, timeoutMs)
+      process.waitFor(timeoutMs, TimeUnit.MILLISECONDS)
+      currentProcess = null
+      val out = output.lines()
+        .filter { !it.startsWith("proot warning:") && !it.startsWith("proot info:") }
+        .joinToString("\n").trim()
+      if (out.length > 8000) {
+        out.take(8000) + "\n[truncated]"
+      } else {
+        out.ifEmpty { "(no output, exit ${process.exitValue()})" }
+      }
+    } catch (e: Exception) {
+      currentProcess = null
+      Log.e(TAG, "exec failed", e)
+      "Error: ${e.message}"
+    }
+  }
 
-        val tmpDir = File(rootfs, "tmp").also { it.mkdirs() }
-        bind(tmpDir.absolutePath, "/dev/shm")
+  /** Kill any running proot process. */
+  fun cancel() {
+    currentProcess?.let {
+      Log.i(TAG, "Cancelling running proot process")
+      it.destroyForcibly()
+      currentProcess = null
+    }
+  }
 
-        bind("/proc/self/fd/0", "/dev/stdin")
-        bind("/proc/self/fd/1", "/dev/stdout")
-        bind("/proc/self/fd/2", "/dev/stderr")
+  private fun buildProotArgs(rootfs: File, filesDir: String, command: String): List<String> {
+    val args = mutableListOf("--kill-on-exit")
 
-        val fipsFile = File(tmpDir, "fips_enabled").also { it.writeText("0\n") }
-        bind(fipsFile.absolutePath, "/proc/sys/crypto/fips_enabled")
-
-        args.addAll(listOf(
-            "-r", rootfs.absolutePath,
-            "-0", "--link2symlink", "--sysvipc", "-L",
-            "-w", "/root",
-            "/usr/bin/env",
-            "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-            "HOME=/root", "USER=root", "TERM=xterm-256color",
-            "TMPDIR=/tmp", "LANG=C.UTF-8", "LC_ALL=C.UTF-8",
-            "/bin/bash", "-c", command
-        ))
-        return args
+    fun bind(src: String, dst: String? = null) {
+      args.addAll(listOf("-b", if (dst != null) "$src:$dst" else src))
     }
 
-    private fun buildProotEnv(filesDir: String, nativeLibDir: String): Map<String, String> {
-        val env = mutableMapOf(
-            "PROOT_TMP_DIR" to "$filesDir/tmp",
-            "LD_LIBRARY_PATH" to filesDir
-        )
-        val loader = File(nativeLibDir, "libproot.so")
-        val loader32 = File(nativeLibDir, "libproot32.so")
-        if (loader.exists()) env["PROOT_LOADER"] = loader.absolutePath
-        if (loader32.exists()) env["PROOT_LOADER32"] = loader32.absolutePath
-        return env
+    for (mnt in listOf(
+      "/apex",
+      "/odm",
+      "/product",
+      "/system",
+      "/system_ext",
+      "/vendor",
+      "/linkerconfig/ld.config.txt",
+      "/linkerconfig/com.android.art/ld.config.txt",
+    )) {
+      val f = File(mnt)
+      if (f.exists()) bind(f.canonicalPath)
     }
+
+    bind("/dev")
+    bind("/dev/urandom", "/dev/random")
+    bind("/proc")
+    bind("/sys")
+    bind("/proc/self/fd", "/dev/fd")
+    bind(filesDir)
+
+    val tmpDir = File(rootfs, "tmp").also { it.mkdirs() }
+    bind(tmpDir.absolutePath, "/dev/shm")
+
+    bind("/proc/self/fd/0", "/dev/stdin")
+    bind("/proc/self/fd/1", "/dev/stdout")
+    bind("/proc/self/fd/2", "/dev/stderr")
+
+    val fipsFile = File(tmpDir, "fips_enabled").also { it.writeText("0\n") }
+    bind(fipsFile.absolutePath, "/proc/sys/crypto/fips_enabled")
+
+    args.addAll(
+      listOf(
+        "-r", rootfs.absolutePath,
+        "-0", "--link2symlink", "--sysvipc", "-L",
+        "-w", "/root",
+        "/usr/bin/env",
+        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "HOME=/root", "USER=root", "TERM=xterm-256color",
+        "TMPDIR=/tmp", "LANG=C.UTF-8", "LC_ALL=C.UTF-8",
+        "/bin/bash", "-c", command,
+      ),
+    )
+    return args
+  }
+
+  private fun buildProotEnv(filesDir: String, nativeLibDir: String): Map<String, String> {
+    val env = mutableMapOf(
+      "PROOT_TMP_DIR" to "$filesDir/tmp",
+      "LD_LIBRARY_PATH" to filesDir,
+    )
+    val loader = File(nativeLibDir, "libproot.so")
+    val loader32 = File(nativeLibDir, "libproot32.so")
+    if (loader.exists()) env["PROOT_LOADER"] = loader.absolutePath
+    if (loader32.exists()) env["PROOT_LOADER32"] = loader32.absolutePath
+    return env
+  }
 }

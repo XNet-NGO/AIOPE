@@ -22,18 +22,16 @@ import com.aiope2.core.preferences.delegate.stringPreferences
 import java.util.UUID
 import javax.inject.Inject
 
-class Preferences @Inject constructor(
-  val sharedPreferences: SharedPreferences
-) {
+class Preferences @Inject constructor(val sharedPreferences: SharedPreferences) {
 
   val userUUID: String by stringPreferences(
     key = KEY_UUID,
-    defaultValue = UUID.randomUUID().toString()
+    defaultValue = UUID.randomUUID().toString(),
   )
 
   var balloonChannelDisplayed: Boolean by booleanPreferences(
     key = KEY_BALLOON_CHANNEL_DISPLAYED,
-    defaultValue = false
+    defaultValue = false,
   )
 
   companion object {

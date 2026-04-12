@@ -9,7 +9,10 @@ import com.aiope2.feature.chat.settings.ProviderStore
 import com.aiope2.feature.chat.settings.SettingsScreen
 import javax.inject.Inject
 
-fun NavGraphBuilder.aiopeNavigation(composeNavigator: AppComposeNavigator, providerStore: ProviderStore) {
+fun NavGraphBuilder.aiopeNavigation(
+  composeNavigator: AppComposeNavigator,
+  providerStore: ProviderStore,
+) {
   composable(route = AiopeScreens.Chat.route) {
     ChatScreen(onOpenSettings = { composeNavigator.navigate(AiopeScreens.Settings.route) })
   }

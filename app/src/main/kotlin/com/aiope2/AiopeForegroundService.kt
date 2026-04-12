@@ -38,12 +38,20 @@ class AiopeForegroundService : Service() {
   override fun onBind(intent: Intent?): IBinder? = null
 
   private fun createChannel() {
-    val channel = NotificationChannel(CHANNEL_ID, "AIOPE Background", NotificationManager.IMPORTANCE_LOW).apply {
+    val channel = NotificationChannel(
+      CHANNEL_ID,
+      "AIOPE Background",
+      NotificationManager.IMPORTANCE_LOW,
+    ).apply {
       description = "Keeps AIOPE running"
       setShowBadge(false)
       setSound(null, null)
     }
-    (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).createNotificationChannel(channel)
+    (
+      getSystemService(
+        NOTIFICATION_SERVICE,
+      ) as NotificationManager
+      ).createNotificationChannel(channel)
   }
 
   private fun buildNotification(): Notification {

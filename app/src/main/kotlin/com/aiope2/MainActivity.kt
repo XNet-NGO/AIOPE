@@ -12,9 +12,9 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
-import com.aiope2.ui.AiopeMain
 import com.aiope2.core.navigation.AppComposeNavigator
 import com.aiope2.feature.chat.settings.ProviderStore
+import com.aiope2.ui.AiopeMain
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
@@ -22,6 +22,7 @@ import javax.inject.Inject
 class MainActivity : ComponentActivity() {
 
   @Inject lateinit var composeNavigator: AppComposeNavigator
+
   @Inject lateinit var providerStore: ProviderStore
 
   private val runtimePermissions = buildList {
@@ -33,13 +34,17 @@ class MainActivity : ComponentActivity() {
   }.toTypedArray()
 
   private val permissionLauncher = registerForActivityResult(
-    ActivityResultContracts.RequestMultiplePermissions()
+    ActivityResultContracts.RequestMultiplePermissions(),
   ) { results ->
     // After runtime permissions, request All Files Access if needed
     if (Build.VERSION.SDK_INT >= 30 && !Environment.isExternalStorageManager()) {
       try {
-        startActivity(Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
-          Uri.parse("package:$packageName")))
+        startActivity(
+          Intent(
+            Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+            Uri.parse("package:$packageName"),
+          ),
+        )
       } catch (_: Exception) {
         startActivity(Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION))
       }
@@ -57,8 +62,12 @@ class MainActivity : ComponentActivity() {
       permissionLauncher.launch(needed.toTypedArray())
     } else if (Build.VERSION.SDK_INT >= 30 && !Environment.isExternalStorageManager()) {
       try {
-        startActivity(Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
-          Uri.parse("package:$packageName")))
+        startActivity(
+          Intent(
+            Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+            Uri.parse("package:$packageName"),
+          ),
+        )
       } catch (_: Exception) {}
     }
 
@@ -66,8 +75,12 @@ class MainActivity : ComponentActivity() {
     val pm = getSystemService(android.os.PowerManager::class.java)
     if (!pm.isIgnoringBatteryOptimizations(packageName)) {
       try {
-        startActivity(Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
-          Uri.parse("package:$packageName")))
+        startActivity(
+          Intent(
+            android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+            Uri.parse("package:$packageName"),
+          ),
+        )
       } catch (_: Exception) {}
     }
 

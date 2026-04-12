@@ -21,7 +21,7 @@ data class ModelConfig(
   // Context
   val contextTokens: Int = 10_000_000,
   val autoCompact: Boolean = false,
-  val systemPromptOverride: String? = null
+  val systemPromptOverride: String? = null,
 ) {
   fun toJson() = JSONObject().apply {
     put("modelId", modelId)
@@ -54,7 +54,14 @@ data class ModelConfig(
       reasoningEffort = if (j.has("reasoningEffort")) j.getString("reasoningEffort") else null,
       contextTokens = j.optInt("contextTokens", 10_000_000),
       autoCompact = j.optBoolean("autoCompact", false),
-      systemPromptOverride = if (j.has("systemPromptOverride")) j.getString("systemPromptOverride") else null,
+      systemPromptOverride = if (j.has(
+          "systemPromptOverride",
+        )
+      ) {
+        j.getString("systemPromptOverride")
+      } else {
+        null
+      },
     )
   }
 }
@@ -67,7 +74,7 @@ data class ModelDef(
   val supportsVision: Boolean = false,
   val supportsAudio: Boolean = false,
   val supportsVideo: Boolean = false,
-  val outputModality: String = "text" // "text", "image", "audio", "video"
+  val outputModality: String = "text",
 )
 
 /** Provider profile — only connection info + selected model + per-model configs */
@@ -79,19 +86,26 @@ data class ProviderProfile(
   val apiBase: String = "",
   val selectedModelId: String = "",
   val isActive: Boolean = false,
-  val modelConfigs: Map<String, ModelConfig> = emptyMap()
+  val modelConfigs: Map<String, ModelConfig> = emptyMap(),
 ) {
   fun effectiveModel(): String = selectedModelId
-  fun effectiveApiBase(): String = apiBase.ifBlank { ProviderTemplates.byId[builtinId]?.apiBase ?: "" }
+  fun effectiveApiBase(): String = apiBase.ifBlank {
+    ProviderTemplates.byId[builtinId]?.apiBase
+      ?: ""
+  }
 
   /** Get or create config for the selected model */
   fun activeModelConfig(): ModelConfig =
     modelConfigs[selectedModelId] ?: ModelConfig(modelId = selectedModelId)
 
   fun toJson() = JSONObject().apply {
-    put("id", id); put("builtinId", builtinId); put("label", label)
-    put("apiKey", apiKey); put("apiBase", apiBase)
-    put("selectedModelId", selectedModelId); put("isActive", isActive)
+    put("id", id)
+    put("builtinId", builtinId)
+    put("label", label)
+    put("apiKey", apiKey)
+    put("apiBase", apiBase)
+    put("selectedModelId", selectedModelId)
+    put("isActive", isActive)
     if (modelConfigs.isNotEmpty()) {
       val mc = JSONObject()
       modelConfigs.forEach { (k, v) -> mc.put(k, v.toJson()) }
@@ -107,10 +121,14 @@ data class ProviderProfile(
         map
       } ?: emptyMap()
       return ProviderProfile(
-        id = j.optString("id"), builtinId = j.optString("builtinId", "custom"),
-        label = j.optString("label"), apiKey = j.optString("apiKey"),
-        apiBase = j.optString("apiBase"), selectedModelId = j.optString("selectedModelId"),
-        isActive = j.optBoolean("isActive"), modelConfigs = mc
+        id = j.optString("id"),
+        builtinId = j.optString("builtinId", "custom"),
+        label = j.optString("label"),
+        apiKey = j.optString("apiKey"),
+        apiBase = j.optString("apiBase"),
+        selectedModelId = j.optString("selectedModelId"),
+        isActive = j.optBoolean("isActive"),
+        modelConfigs = mc,
       )
     }
   }
@@ -123,19 +141,51 @@ data class BuiltinProvider(
   val apiBase: String? = null,
   val apiKeyHint: String = "",
   val requiresApiKey: Boolean = true,
-  val defaultModels: List<ModelDef> = emptyList()
+  val defaultModels: List<ModelDef> = emptyList(),
 )
 
 object ProviderTemplates {
   val ALL = listOf(
-    BuiltinProvider("aiope_gateway", "AIOPE Gateway", "", "https://inf.xnet.ngo/v1", apiKeyHint = "Gateway key", defaultModels = listOf(
-      ModelDef("llama/qwen3.5-2b-heretic", "Qwen 3.5 2B Heretic", 32_768),
-      ModelDef("cf-image/flux-1-schnell", "FLUX Schnell", outputModality = "image", supportsTools = false),
-      ModelDef("cf-image/flux-2-dev", "FLUX 2 Dev", outputModality = "image", supportsTools = false),
-      ModelDef("cf-image/sdxl-lightning", "SDXL Lightning", outputModality = "image", supportsTools = false),
-      ModelDef("cf-image/dreamshaper-8", "Dreamshaper 8", outputModality = "image", supportsTools = false),
-      ModelDef("cf-image/leonardo-phoenix", "Leonardo Phoenix", outputModality = "image", supportsTools = false),
-    )),
+    BuiltinProvider(
+      "aiope_gateway",
+      "AIOPE Gateway",
+      "",
+      "https://inf.xnet.ngo/v1",
+      apiKeyHint = "Gateway key",
+      defaultModels = listOf(
+        ModelDef("llama/qwen3.5-2b-heretic", "Qwen 3.5 2B Heretic", 32_768),
+        ModelDef(
+          "cf-image/flux-1-schnell",
+          "FLUX Schnell",
+          outputModality = "image",
+          supportsTools = false,
+        ),
+        ModelDef(
+          "cf-image/flux-2-dev",
+          "FLUX 2 Dev",
+          outputModality = "image",
+          supportsTools = false,
+        ),
+        ModelDef(
+          "cf-image/sdxl-lightning",
+          "SDXL Lightning",
+          outputModality = "image",
+          supportsTools = false,
+        ),
+        ModelDef(
+          "cf-image/dreamshaper-8",
+          "Dreamshaper 8",
+          outputModality = "image",
+          supportsTools = false,
+        ),
+        ModelDef(
+          "cf-image/leonardo-phoenix",
+          "Leonardo Phoenix",
+          outputModality = "image",
+          supportsTools = false,
+        ),
+      ),
+    ),
     BuiltinProvider("custom", "Custom", "", apiKeyHint = "API key", requiresApiKey = false),
   )
   val byId = ALL.associateBy { it.id }

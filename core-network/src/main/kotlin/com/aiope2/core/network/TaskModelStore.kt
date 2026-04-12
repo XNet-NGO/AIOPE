@@ -19,6 +19,7 @@ enum class ModelTask(val id: String, val label: String, val description: String)
   AUDIO_GENERATION("audio_gen", "Audio Generation", "Generate speech and audio"),
   VIDEO_GENERATION("video_gen", "Video Generation", "Generate video from prompts"),
   ;
+
   companion object {
     /** Tasks shown in the settings UI (excludes CHAT) */
     val configurable = entries.filter { it != CHAT }
@@ -27,8 +28,8 @@ enum class ModelTask(val id: String, val label: String, val description: String)
 
 data class TaskModelConfig(
   val taskId: String,
-  val profileId: String? = null, // null = use active profile
-  val modelId: String? = null    // null = use profile's selected model
+  val profileId: String? = null,
+  val modelId: String? = null,
 )
 
 class TaskModelStore(context: Context) {
@@ -41,9 +42,11 @@ class TaskModelStore(context: Context) {
       TaskModelConfig(
         taskId = task.id,
         profileId = j.optString("profileId", "").ifBlank { null },
-        modelId = j.optString("modelId", "").ifBlank { null }
+        modelId = j.optString("modelId", "").ifBlank { null },
       )
-    } catch (_: Exception) { TaskModelConfig(task.id) }
+    } catch (_: Exception) {
+      TaskModelConfig(task.id)
+    }
   }
 
   fun setTaskConfig(task: ModelTask, config: TaskModelConfig) {

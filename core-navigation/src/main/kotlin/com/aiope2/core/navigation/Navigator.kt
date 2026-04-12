@@ -56,6 +56,7 @@ abstract class AppComposeNavigator : Navigator() {
       }
 
       NavigationCommand.NavigateUp -> navigateUp()
+
       is ComposeNavigationCommand.PopUpToRoute -> popBackStack(
         navigationCommand.route,
         navigationCommand.inclusive,

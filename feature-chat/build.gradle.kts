@@ -48,4 +48,7 @@ dependencies {
   // networking
   implementation(libs.okhttp)
   implementation(libs.okhttp.sse)
+
+  // tokenizer
+  implementation(libs.jtokkit)
 }

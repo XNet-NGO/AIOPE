@@ -11,6 +11,7 @@ import com.aiope2.feature.chat.db.ChatDao
 import com.aiope2.feature.chat.db.ConversationEntity
 import com.aiope2.feature.chat.db.MessageEntity
 import com.aiope2.feature.chat.engine.StreamingOrchestrator
+import com.aiope2.feature.chat.engine.TokenCounter
 import com.aiope2.feature.chat.settings.McpManager
 import com.aiope2.feature.chat.settings.ProviderStore
 import com.aiope2.feature.chat.settings.ToolStore
@@ -343,16 +344,16 @@ class ChatViewModel @Inject constructor(
 
         val toolDefs = if (useTools) buildToolDefs() else emptyList()
 
-        // Build messages (trim to contextTokens limit, ~4 chars/token)
+        // Build messages (trim to contextTokens limit using jtokkit)
         val chatMessages = buildSystemMessages(mc)
-        val maxChars = mc.contextTokens * 4L
-        var charCount = 0L
+        val maxTokens = mc.contextTokens.toLong()
+        var tokenCount = TokenCounter.countMessages(chatMessages, mc.modelId)
         val history = _messages.value.dropLast(1).reversed()
         val trimmed = mutableListOf<Pair<String, String>>()
         for (msg in history) {
-          val len = msg.content.length
-          if (charCount + len > maxChars) break
-          charCount += len
+          val msgTokens = TokenCounter.count(msg.content, mc.modelId) + 4
+          if (tokenCount + msgTokens > maxTokens) break
+          tokenCount += msgTokens
           val role = when (msg.role) {
             Role.USER -> "user"
             Role.ASSISTANT -> "assistant"
@@ -551,9 +552,9 @@ class ChatViewModel @Inject constructor(
   private fun maybeAutoCompact(mc: ModelConfig) {
     if (!mc.autoCompact) return
     val msgs = _messages.value
-    val totalChars = msgs.sumOf { it.content.length }
-    val threshold = mc.contextTokens * 4L * 95 / 100 // 95% of token limit in chars
-    if (totalChars > threshold && msgs.size > 2) {
+    val totalTokens = msgs.sumOf { TokenCounter.count(it.content, mc.modelId) }
+    val threshold = mc.contextTokens * 95 / 100 // 95% of token limit
+    if (totalTokens > threshold && msgs.size > 2) {
       // Compact first half of conversation
       compact(msgs.size / 2)
     }

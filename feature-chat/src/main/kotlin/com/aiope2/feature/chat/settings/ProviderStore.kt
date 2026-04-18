@@ -23,17 +23,16 @@ class ProviderStore @Inject constructor(@ApplicationContext ctx: Context) {
         label = "AIOPE Gateway",
         apiKey = com.aiope2.feature.chat.BuildConfig.GATEWAY_KEY,
         apiBase = "https://inf.xnet.ngo/v1",
-        selectedModelId = "llama/qwen3.5-2b-heretic",
+        selectedModelId = "google-ai-studio/models-gemma-4-31b-it",
         isActive = true,
         modelConfigs = mapOf(
-          "llama/qwen3.5-2b-heretic" to ModelConfig(
-            modelId = "llama/qwen3.5-2b-heretic",
+          "google-ai-studio/models-gemma-4-31b-it" to ModelConfig(
+            modelId = "google-ai-studio/models-gemma-4-31b-it",
             toolsOverride = true,
             visionOverride = true,
             reasoningEffort = "auto",
-            contextTokens = 128_000,
+            contextTokens = 256_000,
             autoCompact = true,
-            maxTokens = 16_000,
           ),
         ),
       )
@@ -82,7 +81,7 @@ class ProviderStore @Inject constructor(@ApplicationContext ctx: Context) {
   }
 
   fun getActive(): ProviderProfile = getAll().firstOrNull { it.id == prefs.getString("active_id", "") } ?: getAll().firstOrNull()
-    ?: ProviderProfile(builtinId = "aiope_gateway", label = "AIOPE Gateway", apiKey = com.aiope2.feature.chat.BuildConfig.GATEWAY_KEY, selectedModelId = "llama/qwen3.5-2b-heretic")
+    ?: ProviderProfile(builtinId = "aiope_gateway", label = "AIOPE Gateway", apiKey = com.aiope2.feature.chat.BuildConfig.GATEWAY_KEY, selectedModelId = "google-ai-studio/models-gemma-4-31b-it")
 
   fun getById(id: String): ProviderProfile? = getAll().firstOrNull { it.id == id }
 

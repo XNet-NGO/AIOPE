@@ -681,7 +681,7 @@ private fun blendColor(fg: Int, bg: Int, alpha: Float): Int {
   return (0xFF shl 24) or (r shl 16) or (g shl 8) or b
 }
 
-private fun saveImageToGallery(context: Context, bitmap: android.graphics.Bitmap) {
+internal fun saveImageToGallery(context: Context, bitmap: android.graphics.Bitmap) {
   try {
     val values = android.content.ContentValues().apply {
       put(android.provider.MediaStore.Images.Media.DISPLAY_NAME, "AIOPE2_${System.currentTimeMillis()}.png")

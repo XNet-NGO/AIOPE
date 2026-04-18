@@ -11,7 +11,8 @@ import javax.inject.Singleton
 class ToolStore @Inject constructor(@ApplicationContext ctx: Context) {
   private val prefs = ctx.getSharedPreferences("aiope2_tools", Context.MODE_PRIVATE)
 
-  fun isToolEnabled(toolId: String): Boolean = prefs.getBoolean("tool_$toolId", true)
+  private val defaultOff = setOf("generate_image")
+  fun isToolEnabled(toolId: String): Boolean = prefs.getBoolean("tool_$toolId", toolId !in defaultOff)
   fun setToolEnabled(toolId: String, enabled: Boolean) = prefs.edit().putBoolean("tool_$toolId", enabled).apply()
 
   fun isDynamicUiEnabled(): Boolean = prefs.getBoolean("dynamic_ui_enabled", true)

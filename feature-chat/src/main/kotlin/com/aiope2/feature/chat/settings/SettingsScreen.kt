@@ -1063,6 +1063,7 @@ private fun ToolToggleScreen(toolStore: ToolStore, onBack: () -> Unit) {
     "memory_store" to "Store persistent memories",
     "memory_recall" to "Recall memories",
     "memory_forget" to "Delete memories",
+    "generate_image" to "Generate images (Pollinations)",
   )
   Scaffold(topBar = {
     TopAppBar(

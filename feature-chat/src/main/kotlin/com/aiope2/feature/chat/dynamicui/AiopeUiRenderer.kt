@@ -8,6 +8,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -127,7 +128,12 @@ private fun Render(
       }
     }
 
-    is ImageNode -> coil.compose.AsyncImage(model = node.url, contentDescription = node.alt, modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)))
+    is ImageNode -> {
+      val ctx = androidx.compose.ui.platform.LocalContext.current
+      coil.compose.AsyncImage(model = node.url, contentDescription = node.alt, modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).combinedClickable(onClick = {}, onLongClick = {
+        kotlin.concurrent.thread { try { val bmp = java.net.URL(node.url).openStream().use { android.graphics.BitmapFactory.decodeStream(it) }; if (bmp != null) com.aiope2.feature.chat.saveImageToGallery(ctx, bmp) } catch (_: Exception) {} }
+      }))
+    }
 
     is CodeNode -> RenderCode(node)
 

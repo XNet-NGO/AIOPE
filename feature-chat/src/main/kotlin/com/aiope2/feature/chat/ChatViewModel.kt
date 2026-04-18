@@ -302,6 +302,7 @@ class ChatViewModel @Inject constructor(
       toolExecutor.shellOutputLimit = mc.shellOutputLimit
       toolExecutor.fetchLimit = mc.fetchLimit
       toolExecutor.fileReadLimit = mc.fileReadLimit
+      toolExecutor.locationUsedThisTurn = false
 
       try {
         val useTools = mc.toolsOverride != false // null=auto(send), true=send, false=dont send
@@ -436,7 +437,7 @@ class ChatViewModel @Inject constructor(
                   toolCalls = toolCallsList.toList(),
                   toolResults = toolResultsList.toList(),
                   toolErrors = toolErrorsList.toList(),
-                  locationData = toolExecutor.lastLocationData,
+                  locationData = if (toolExecutor.locationUsedThisTurn) toolExecutor.lastLocationData else null,
                 )
               }
             }
@@ -453,7 +454,7 @@ class ChatViewModel @Inject constructor(
 
         // Persist final message
         val finalMsg = _messages.value.last()
-        toolExecutor.lastLocationData = null // Don't carry map to next response
+        toolExecutor.locationUsedThisTurn = false // Don't carry map to next response
         android.util.Log.d("AIOPE2", "Final content len=${finalMsg.content.length} last100=${finalMsg.content.takeLast(100)}")
         val filesDirPath = getApplication<android.app.Application>().filesDir.absolutePath
         val genImagePaths = generatedImages.joinToString(",") { it.removePrefix("file://").removePrefix("$filesDirPath/") }
@@ -686,7 +687,7 @@ class ChatViewModel @Inject constructor(
           val allReasoning = if (isReasoning && currentReasoning.isNotEmpty()) reasoningBlocks + currentReasoning.toString() else reasoningBlocks.toList()
           withContext(Dispatchers.Main) {
             _messages.value = _messages.value.toMutableList().also {
-              it[it.lastIndex] = it.last().copy(content = sb.toString(), reasoning = allReasoning, isReasoningDone = !isReasoning, toolCalls = toolCallsList.toList(), toolResults = toolResultsList.toList(), toolErrors = toolErrorsList.toList(), locationData = toolExecutor.lastLocationData)
+              it[it.lastIndex] = it.last().copy(content = sb.toString(), reasoning = allReasoning, isReasoningDone = !isReasoning, toolCalls = toolCallsList.toList(), toolResults = toolResultsList.toList(), toolErrors = toolErrorsList.toList(), locationData = if (toolExecutor.locationUsedThisTurn) toolExecutor.lastLocationData else null)
             }
           }
         }

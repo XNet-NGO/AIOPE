@@ -24,6 +24,7 @@ class ToolExecutor(
   private val resolveTaskModel: (ModelTask) -> Pair<ProviderProfile, String>,
 ) {
   var lastLocationData: LocationData? = null
+  var locationUsedThisTurn = false
   private var cachedDataCategories: String? = null
   var shellOutputLimit = 4000
   var fetchLimit = 12000
@@ -124,6 +125,7 @@ class ToolExecutor(
       val loc = locationProvider.getFreshLocation() ?: locationProvider.getLastLocation()
       if (loc != null) {
         lastLocationData = LocationData(loc.latitude, loc.longitude, if (loc.hasAltitude()) loc.altitude else null, if (loc.hasSpeed()) loc.speed.toDouble() else null, if (loc.hasBearing()) loc.bearing.toDouble() else null, loc.accuracy.toDouble())
+        locationUsedThisTurn = true
         val base = locationProvider.formatLocation(loc)
         val address = locationProvider.reverseGeocode(loc)
         if (address != null) "$base\n$address" else base
@@ -336,6 +338,7 @@ class ToolExecutor(
   }
 
   private fun executeSearchLocation(query: String): String {
+    locationUsedThisTurn = true
     val q = query.lowercase()
     val businessTerms = listOf("near", "closest", "nearest", "nearby", "restaurant", "food", "eat", "coffee", "cafe", "pizza", "burger", "gas", "fuel", "pharmacy", "hotel", "grocery", "bar", "pub", "gym", "bank", "atm", "parking", "hospital", "mcdonald", "starbucks", "walmart", "target", "costco", "wendy", "subway", "taco bell", "burger king", "chick-fil", "dunkin")
     val isBusiness = businessTerms.any { q.contains(it) }

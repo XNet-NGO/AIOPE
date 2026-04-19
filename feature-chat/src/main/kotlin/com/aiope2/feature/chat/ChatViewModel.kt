@@ -795,9 +795,21 @@ class ChatViewModel @Inject constructor(
       ).also { mgr ->
         mgr.onTaskFinished = { task ->
           val status = if (task.stage == com.aiope2.feature.chat.engine.SubagentManager.Stage.FINISHED) "completed" else "failed"
-          val content = "[Subagent $status: ${task.description}]\n${task.result.take(3000)}"
+          val summary = task.result.take(3000)
+          val content = if (status == "completed") {
+            "Subagent research on \"${task.description}\" completed. Findings:\n$summary"
+          } else {
+            "Subagent \"${task.description}\" failed: ${task.error}"
+          }
+          // Add as system message — included in context for next turn, collapsed in UI
           viewModelScope.launch(kotlinx.coroutines.Dispatchers.Main) {
-            _messages.value = _messages.value.toMutableList().also { it.add(ChatMessage(role = Role.SYSTEM, content = content)) }
+            _messages.value = _messages.value.toMutableList().also {
+              it.add(ChatMessage(role = Role.SYSTEM, content = content))
+            }
+            // If not currently streaming, auto-trigger the main agent to process findings
+            if (!_isStreaming.value) {
+              send("Process the subagent research results above and incorporate the findings.")
+            }
           }
         }
       }

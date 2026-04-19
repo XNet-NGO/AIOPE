@@ -39,11 +39,11 @@ class ProviderStore @Inject constructor(
       selectedModelId = "google-ai-studio/models-gemma-4-31b-it",
       isActive = true,
       modelConfigs = mapOf(
-        mc("cline/minimax-minimax-m2.5"),
-        mc("zen/minimax-m2.5-free"),
-        mc("zen/nemotron-3-super-free", tools = true, vision = false, audio = false, video = false),
+        mc("cline/minimax-minimax-m2.5", ctx = 200_000),
+        mc("zen/minimax-m2.5-free", ctx = 200_000),
+        mc("zen/nemotron-3-super-free", tools = true, vision = false, audio = false, video = false, ctx = 200_000),
         mc("zen/big-pickle", tools = true, vision = false, audio = false, video = false),
-        mc("cline/z-ai-glm-5", tools = true, vision = false, audio = false, video = false),
+        mc("cline/z-ai-glm-5", tools = true, vision = false, audio = false, video = false, ctx = 200_000),
         mc("google-ai-studio/models-gemma-4-31b-it", tools = true, vision = true, ctx = 256_000),
         mc("google-ai-studio/models-gemma-4-26b-a4b-it", vision = true, ctx = 256_000),
         mc("google-ai-studio/models-gemma-3-27b-it", tools = false, vision = true, audio = false, video = false, ctx = 128_000),
@@ -52,9 +52,9 @@ class ProviderStore @Inject constructor(
         mc("google-ai-studio/models-gemma-3-1b-it", tools = false, vision = false, audio = false, video = false, ctx = 32_000, reasoning = null),
         mc("google-ai-studio/models-gemma-3n-e2b-it", tools = false, vision = true, audio = true, video = false, ctx = 128_000),
         mc("google-ai-studio/models-gemma-3n-e4b-it", tools = false, vision = true, audio = true, video = false, ctx = 128_000),
-        mc("openrouter/openrouter-free", vision = true, ctx = 256_000),
-        mc("pollinations/openai", tools = true, vision = true, audio = false, video = false, ctx = 128_000, compact = false),
-        mc("pollinations/openai-fast", vision = true, ctx = 128_000),
+        mc("openrouter/openrouter-free", vision = true, ctx = 128_000),
+        mc("pollinations/openai", tools = true, vision = false, audio = false, video = false, ctx = 128_000, compact = false),
+        mc("pollinations/openai-fast", tools = true, vision = false, audio = false, video = false, ctx = 128_000),
       ),
     )
     save(default)

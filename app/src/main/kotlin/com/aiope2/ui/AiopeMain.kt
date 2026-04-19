@@ -16,7 +16,7 @@ import com.aiope2.navigation.AiopeNavHost
 
 @Composable
 fun AiopeMain(composeNavigator: AppComposeNavigator, providerStore: ProviderStore, toolStore: ToolStore, chatDao: ChatDao) {
-  AiopeTheme {
+  com.aiope2.feature.chat.theme.ThemeProvider {
     var showSplash by remember { mutableStateOf(true) }
     if (showSplash) {
       SplashScreen { showSplash = false }

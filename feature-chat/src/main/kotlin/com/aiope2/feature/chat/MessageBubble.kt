@@ -89,11 +89,14 @@ private fun UserBubble(
   onFork: (() -> Unit)?,
 ) {
   val cs = MaterialTheme.colorScheme
+  val theme = com.aiope2.feature.chat.theme.LocalThemeState.current
+  val bubbleColor = if (theme.useCustomBubbles && theme.userBubbleColor != null) theme.userBubbleColor else Color(0xFF00E5FF).copy(alpha = 0.12f)
+  val textColor = if (theme.useCustomBubbles && theme.userTextColor != null) theme.userTextColor else cs.onSurface
   val screenW = LocalConfiguration.current.screenWidthDp.dp
   Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp), horizontalArrangement = Arrangement.End) {
     Surface(
       shape = RoundedCornerShape(16.dp),
-      color = Color(0xFF00E5FF).copy(alpha = 0.12f),
+      color = bubbleColor,
       modifier = Modifier.widthIn(max = screenW * 0.75f),
     ) {
       Column(Modifier.padding(12.dp)) {
@@ -137,7 +140,7 @@ private fun UserBubble(
         SelectionContainer {
           Text(
             message.content,
-            color = cs.onSurface,
+            color = textColor,
             fontSize = 15.5.sp,
             lineHeight = 23.sp,
             style = MaterialTheme.typography.bodyMedium,
@@ -168,9 +171,10 @@ private fun AssistantBubble(
   subagentTasks: List<com.aiope2.feature.chat.engine.SubagentManager.SubagentTask> = emptyList(),
 ) {
   val cs = MaterialTheme.colorScheme
+  val theme = com.aiope2.feature.chat.theme.LocalThemeState.current
   Column(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp)) {
     // Reasoning blocks
-    if (message.reasoning.isNotEmpty()) {
+    if (theme.showThinking && message.reasoning.isNotEmpty()) {
       ReasoningTabStrip(message.reasoning, message.isReasoningDone)
       Spacer(Modifier.height(8.dp))
     }
@@ -204,7 +208,7 @@ private fun AssistantBubble(
     // Content (skip if it's just a generated image file path)
     if (message.content.isNotBlank() && !(message.content.startsWith("file://") && message.imageUris.isNotEmpty())) {
       val content = message.content.trimEnd()
-      val mdTheme = rememberMarkdownTheme(cs)
+      val mdTheme = rememberMarkdownTheme(cs, com.aiope2.feature.chat.theme.LocalThemeState.current)
       // Detect aiope-ui blocks (complete = has closing ```)
       val hasUiBlock = content.contains("```aiope-ui")
       val uiBlockComplete = hasUiBlock && Regex("""```aiope-ui\s*\n[\s\S]*?```""").containsMatchIn(content)
@@ -656,10 +660,11 @@ private fun MessageMenu(
 // ── MarkdownTheme from MaterialTheme ──
 
 @Composable
-private fun rememberMarkdownTheme(cs: ColorScheme): MarkdownTheme = remember(cs) {
+private fun rememberMarkdownTheme(cs: ColorScheme, theme: com.aiope2.feature.chat.theme.ThemeState = com.aiope2.feature.chat.theme.ThemeState()): MarkdownTheme = remember(cs, theme) {
+  val textColor = if (theme.useCustomBubbles && theme.aiTextColor != null) theme.aiTextColor else cs.onSurface
   MarkdownTheme(
-    textColor = cs.onSurface,
-    headingColor = cs.onSurface,
+    textColor = textColor,
+    headingColor = textColor,
     linkColor = Color(0xFF00E5FF),
     listBulletColor = Color(0xFF9E9E9E),
     codeTextColor = Color(0xFFE0E0E0),

@@ -166,136 +166,140 @@ private fun ChatContent(
   modifier: Modifier = Modifier,
 ) {
   var showModelPicker by remember { mutableStateOf(false) }
-  Column(modifier.background(Color(0xFF000000))) {
-    // ── Toolbar ──
-    Surface(color = Color(0xFF141414)) {
-      Box(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp)) {
-        // Left: Chats icon + Share
-        Row(modifier = Modifier.align(Alignment.CenterStart)) {
-          IconButton(onClick = onChats, modifier = Modifier.size(36.dp)) {
-            Icon(Icons.Default.Forum, "Chats", modifier = Modifier.size(18.dp), tint = Color.White)
+  val theme = com.aiope2.feature.chat.theme.LocalThemeState.current
+  Box(modifier.background(if (theme.isDark) Color(0xFF000000) else Color(0xFFF5F5F5))) {
+    com.aiope2.feature.chat.theme.ChatBackground(theme)
+    Column(Modifier.fillMaxSize()) {
+      // ── Toolbar ──
+      Surface(color = Color(0xFF141414)) {
+        Box(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp)) {
+          // Left: Chats icon + Share
+          Row(modifier = Modifier.align(Alignment.CenterStart)) {
+            IconButton(onClick = onChats, modifier = Modifier.size(36.dp)) {
+              Icon(Icons.Default.Forum, "Chats", modifier = Modifier.size(18.dp), tint = Color.White)
+            }
+            IconButton(onClick = onShareChat, modifier = Modifier.size(36.dp)) {
+              Icon(Icons.Default.Share, "Share", modifier = Modifier.size(18.dp), tint = Color.White)
+            }
           }
-          IconButton(onClick = onShareChat, modifier = Modifier.size(36.dp)) {
-            Icon(Icons.Default.Share, "Share", modifier = Modifier.size(18.dp), tint = Color.White)
+          // Center: Model dropdown spinner
+          Box(modifier = Modifier.align(Alignment.Center)) {
+            TextButton(
+              onClick = { showModelPicker = !showModelPicker },
+              contentPadding = PaddingValues(horizontal = 8.dp),
+            ) {
+              Text(modelLabel, fontSize = 12.sp, maxLines = 1)
+              Icon(Icons.Default.ArrowDropDown, null, modifier = Modifier.size(16.dp))
+            }
+            DropdownMenu(expanded = showModelPicker, onDismissRequest = { showModelPicker = false }) {
+              val models = onGetModels()
+              val activeModelId = onGetActiveModelId()
+              models.forEach { m ->
+                val selected = m.id == activeModelId
+                DropdownMenuItem(
+                  text = {
+                    Text(
+                      "${if (selected) "• " else ""}${m.displayName}",
+                      color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                      fontSize = 13.sp,
+                    )
+                  },
+                  onClick = {
+                    onSwitchModel(m.id)
+                    showModelPicker = false
+                  },
+                )
+              }
+              if (models.isEmpty()) {
+                DropdownMenuItem(text = { Text("No models — fetch in Settings", fontSize = 12.sp) }, onClick = {})
+              }
+            }
           }
-        }
-        // Center: Model dropdown spinner
-        Box(modifier = Modifier.align(Alignment.Center)) {
-          TextButton(
-            onClick = { showModelPicker = !showModelPicker },
-            contentPadding = PaddingValues(horizontal = 8.dp),
-          ) {
-            Text(modelLabel, fontSize = 12.sp, maxLines = 1)
-            Icon(Icons.Default.ArrowDropDown, null, modifier = Modifier.size(16.dp))
-          }
-          DropdownMenu(expanded = showModelPicker, onDismissRequest = { showModelPicker = false }) {
-            val models = onGetModels()
-            val activeModelId = onGetActiveModelId()
-            models.forEach { m ->
-              val selected = m.id == activeModelId
-              DropdownMenuItem(
-                text = {
-                  Text(
-                    "${if (selected) "• " else ""}${m.displayName}",
-                    color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                    fontSize = 13.sp,
-                  )
-                },
-                onClick = {
-                  onSwitchModel(m.id)
-                  showModelPicker = false
-                },
+          // Right: Browser + Terminal + Settings
+          Row(modifier = Modifier.align(Alignment.CenterEnd)) {
+            IconButton(onClick = onToggleBrowser, modifier = Modifier.size(36.dp)) {
+              Icon(
+                Icons.Default.Language,
+                "Browser",
+                modifier = Modifier.size(18.dp),
+                tint = if (browserVisible) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
               )
             }
-            if (models.isEmpty()) {
-              DropdownMenuItem(text = { Text("No models — fetch in Settings", fontSize = 12.sp) }, onClick = {})
+            IconButton(onClick = onToggleTerminal, modifier = Modifier.size(36.dp)) {
+              Icon(
+                Icons.Default.Terminal,
+                "Terminal",
+                modifier = Modifier.size(18.dp),
+                tint = if (terminalVisible) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+              )
+            }
+            IconButton(onClick = onOpenSettings, modifier = Modifier.size(36.dp)) {
+              Icon(
+                Icons.Default.Settings,
+                "Settings",
+                modifier = Modifier.size(18.dp),
+                tint = Color.White,
+              )
             }
           }
         }
-        // Right: Browser + Terminal + Settings
-        Row(modifier = Modifier.align(Alignment.CenterEnd)) {
-          IconButton(onClick = onToggleBrowser, modifier = Modifier.size(36.dp)) {
-            Icon(
-              Icons.Default.Language,
-              "Browser",
-              modifier = Modifier.size(18.dp),
-              tint = if (browserVisible) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-            )
-          }
-          IconButton(onClick = onToggleTerminal, modifier = Modifier.size(36.dp)) {
-            Icon(
-              Icons.Default.Terminal,
-              "Terminal",
-              modifier = Modifier.size(18.dp),
-              tint = if (terminalVisible) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-            )
-          }
-          IconButton(onClick = onOpenSettings, modifier = Modifier.size(36.dp)) {
-            Icon(
-              Icons.Default.Settings,
-              "Settings",
-              modifier = Modifier.size(18.dp),
-              tint = Color.White,
-            )
-          }
+      }
+      HorizontalDivider(color = Color(0xFF2A2A2A))
+
+      // ── Mode toggle ──
+      Row(
+        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        com.aiope2.feature.chat.engine.AgentMode.entries.forEach { mode ->
+          val selected = mode == agentMode
+          val bg = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) else Color.Transparent
+          val textColor = if (selected) MaterialTheme.colorScheme.primary else Color(0xFF888888)
+          Text(
+            text = mode.label,
+            fontSize = 11.sp,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+            color = textColor,
+            modifier = Modifier
+              .clip(RoundedCornerShape(8.dp))
+              .background(bg)
+              .clickable { onModeChange(mode) }
+              .padding(horizontal = 14.dp, vertical = 4.dp),
+          )
         }
       }
-    }
-    HorizontalDivider(color = Color(0xFF2A2A2A))
 
-    // ── Mode toggle ──
-    Row(
-      Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
-      horizontalArrangement = Arrangement.Center,
-      verticalAlignment = Alignment.CenterVertically,
-    ) {
-      com.aiope2.feature.chat.engine.AgentMode.entries.forEach { mode ->
-        val selected = mode == agentMode
-        val bg = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) else Color.Transparent
-        val textColor = if (selected) MaterialTheme.colorScheme.primary else Color(0xFF888888)
-        Text(
-          text = mode.label,
-          fontSize = 11.sp,
-          fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-          color = textColor,
-          modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background(bg)
-            .clickable { onModeChange(mode) }
-            .padding(horizontal = 14.dp, vertical = 4.dp),
+      // ── Messages or empty state ──
+      if (messages.isEmpty()) {
+        EmptyState(onSend = onSend, modifier = Modifier.weight(1f))
+      } else {
+        MessageList(
+          messages = messages, isStreaming = isStreaming,
+          onEdit = { idx -> onEditMessage(messages[idx].content, idx) },
+          onRetry = { idx -> onRetry(idx) },
+          onCompact = { idx -> onCompact(idx) },
+          onFork = { idx -> onFork(idx) },
+          onTranslate = onTranslate,
+          onUiCallback = { event, data ->
+            val msg = if (data.isNotEmpty()) "Responded with: ${data.entries.joinToString(", ") { "${it.key}: ${it.value}" }}" else "Pressed: $event"
+            onSend(msg, emptyList())
+          },
+          onRunCode = { code, lang ->
+            onSend("Execute this $lang code using run_proot:\n```$lang\n$code\n```", emptyList())
+          },
+          subagentTasks = subagentTasks,
+          listState = listState,
+          modifier = Modifier.weight(1f),
         )
       }
-    }
 
-    // ── Messages or empty state ──
-    if (messages.isEmpty()) {
-      EmptyState(onSend = onSend, modifier = Modifier.weight(1f))
-    } else {
-      MessageList(
-        messages = messages, isStreaming = isStreaming,
-        onEdit = { idx -> onEditMessage(messages[idx].content, idx) },
-        onRetry = { idx -> onRetry(idx) },
-        onCompact = { idx -> onCompact(idx) },
-        onFork = { idx -> onFork(idx) },
-        onTranslate = onTranslate,
-        onUiCallback = { event, data ->
-          val msg = if (data.isNotEmpty()) "Responded with: ${data.entries.joinToString(", ") { "${it.key}: ${it.value}" }}" else "Pressed: $event"
-          onSend(msg, emptyList())
-        },
-        onRunCode = { code, lang ->
-          onSend("Execute this $lang code using run_proot:\n```$lang\n$code\n```", emptyList())
-        },
-        subagentTasks = subagentTasks,
-        listState = listState,
-        modifier = Modifier.weight(1f),
-      )
-    }
+      HorizontalDivider(color = Color(0xFF2A2A2A))
 
-    HorizontalDivider(color = Color(0xFF2A2A2A))
-
-    // ── Input ──
-    Surface(color = Color(0xFF141414)) {
-      ChatInput(onSend = onSend, onStop = onStop, isStreaming = isStreaming, editText = editText, onEditTextChange = onEditTextChange)
+      // ── Input ──
+      Surface(color = Color(0xFF141414)) {
+        ChatInput(onSend = onSend, onStop = onStop, isStreaming = isStreaming, editText = editText, onEditTextChange = onEditTextChange)
+      }
     }
   }
 }

@@ -46,6 +46,7 @@ internal fun ProfileList(
   onTasks: () -> Unit,
   onTools: () -> Unit,
   onMcp: () -> Unit,
+  onTheme: () -> Unit = {},
   onBack: () -> Unit,
 ) {
   Scaffold(topBar = {
@@ -73,6 +74,12 @@ internal fun ProfileList(
           headlineContent = { Text("MCP Servers") },
           supportingContent = { Text("Add remote tool servers via Model Context Protocol", style = MaterialTheme.typography.bodySmall) },
           modifier = Modifier.clickable { onMcp() },
+        )
+        HorizontalDivider()
+        ListItem(
+          headlineContent = { Text("Theme") },
+          supportingContent = { Text("Colors, background, bubbles, display options", style = MaterialTheme.typography.bodySmall) },
+          modifier = Modifier.clickable { onTheme() },
         )
         HorizontalDivider()
         ListItem(

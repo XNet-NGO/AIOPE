@@ -28,8 +28,10 @@ fun SettingsScreen(providerStore: ProviderStore, toolStore: ToolStore, chatDao: 
         editId = it.id
         screen = "edit"
       },
-      onAdd = { screen = "pick" }, onAgent = { screen = "agent" }, onTasks = { screen = "tasks" }, onTools = { screen = "tools" }, onMcp = { screen = "mcp" }, onBack = onBack,
+      onAdd = { screen = "pick" }, onAgent = { screen = "agent" }, onTasks = { screen = "tasks" }, onTools = { screen = "tools" }, onMcp = { screen = "mcp" }, onTheme = { screen = "theme" }, onBack = onBack,
     )
+
+    "theme" -> com.aiope2.feature.chat.theme.ThemeSettingsScreen(onBack = { screen = "list" })
 
     "tools" -> ToolToggleScreen(toolStore, onBack = { screen = "list" })
 

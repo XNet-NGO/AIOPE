@@ -7,6 +7,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -29,7 +30,7 @@ import kotlinx.coroutines.launch
 
 private val PRESET_COLORS = listOf(
   0xFF00E5FF, 0xFF2979FF, 0xFF651FFF, 0xFFD500F9, 0xFFFF1744,
-  0xFFFF9100, 0xFFFFEA00, 0xFF00E676, 0xFF69F0AE, 0xFFFFFFFF,
+  0xFFFF9100, 0xFFFFEA00, 0xFF00E676, 0xFF69F0AE, 0xFFFFFFFF, 0xFF000000,
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -210,13 +211,13 @@ private fun ToggleRow(label: String, checked: Boolean, onToggle: (Boolean) -> Un
 
 @Composable
 private fun ColorRow(selected: Int?, onPick: (Int) -> Unit) {
-  Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+  Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
     PRESET_COLORS.forEach { c ->
       val color = Color(c.toInt() or 0xFF000000.toInt())
       val isSelected = selected == color.toArgb()
       Box(
         Modifier.size(32.dp).clip(CircleShape).background(color)
-          .then(if (isSelected) Modifier.border(2.dp, Color.White, CircleShape) else Modifier)
+          .border(if (isSelected) 2.dp else 0.5.dp, if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant, CircleShape)
           .clickable { onPick(color.toArgb()) },
       )
     }

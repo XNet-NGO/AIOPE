@@ -53,7 +53,7 @@ class ThemePrefs(private val ctx: Context) {
   private val ds = ctx.themeDataStore
 
   // Flows
-  val themeMode: Flow<String> = ds.data.map { it[THEME_MODE] ?: "dark" }
+  val themeMode: Flow<String> = ds.data.map { it[THEME_MODE] ?: "system" }
   val primaryColor: Flow<Int?> = ds.data.map { it[PRIMARY_COLOR] }
   val secondaryColor: Flow<Int?> = ds.data.map { it[SECONDARY_COLOR] }
   val useCustomColors: Flow<Boolean> = ds.data.map { it[USE_CUSTOM_COLORS] ?: false }

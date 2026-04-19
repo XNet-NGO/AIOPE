@@ -53,7 +53,7 @@ fun ThemeProvider(content: @Composable () -> Unit) {
   val ctx = LocalContext.current
   val prefs = remember { ThemePrefs(ctx) }
 
-  val mode = prefs.themeMode.collectAsState(initial = "dark").value
+  val mode = prefs.themeMode.collectAsState(initial = "system").value
   val sysDark = isSystemInDarkTheme()
   val isDark = when (mode) {
     "light" -> false

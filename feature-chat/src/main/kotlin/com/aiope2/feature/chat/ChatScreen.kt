@@ -311,7 +311,7 @@ private fun MessageList(
   val scope = rememberCoroutineScope()
   // No auto-scroll — user controls scroll, use ▼ button to go to bottom
   Box(modifier = modifier) {
-    LazyColumn(state = listState, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 60.dp)) {
+    LazyColumn(state = listState, modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 60.dp)) {
       items(messages.size, key = { messages[it].id }) { idx ->
         val msg = messages[idx]
         MessageBubble(

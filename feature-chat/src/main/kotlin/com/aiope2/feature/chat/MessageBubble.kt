@@ -88,7 +88,7 @@ private fun UserBubble(
 ) {
   val cs = MaterialTheme.colorScheme
   val screenW = LocalConfiguration.current.screenWidthDp.dp
-  Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), horizontalArrangement = Arrangement.End) {
+  Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp), horizontalArrangement = Arrangement.End) {
     Surface(
       shape = RoundedCornerShape(16.dp),
       color = Color(0xFF00E5FF).copy(alpha = 0.12f),
@@ -145,7 +145,7 @@ private fun UserBubble(
     }
   }
   // User actions row
-  Row(Modifier.fillMaxWidth().padding(end = 16.dp, bottom = 2.dp), horizontalArrangement = Arrangement.End) {
+  Row(Modifier.fillMaxWidth().padding(end = 4.dp, bottom = 2.dp), horizontalArrangement = Arrangement.End) {
     MessageMenu(message, showMenu, onShowMenu, ctx, onEdit, onRetry, onCompact, onFork)
   }
 }
@@ -164,7 +164,7 @@ private fun AssistantBubble(
   onUiCallback: ((String, Map<String, String>) -> Unit)? = null,
 ) {
   val cs = MaterialTheme.colorScheme
-  Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)) {
+  Column(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp)) {
     // Reasoning blocks
     if (message.reasoning.isNotEmpty()) {
       ReasoningTabStrip(message.reasoning, message.isReasoningDone)

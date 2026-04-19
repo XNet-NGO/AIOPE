@@ -73,7 +73,17 @@ class ToolExecutor(
     td("delete_sms", "Delete an SMS message by its ID (from read_sms).", """{"type":"object","properties":{"sms_id":{"type":"integer","description":"SMS ID from read_sms"}},"required":["sms_id"]}"""),
     td("device_info", "Get device info: battery, storage, RAM, network, model.", """{"type":"object","properties":{}}"""),
     td("media_control", "Control media playback (play/pause, next, previous, stop).", """{"type":"object","properties":{"action":{"type":"string","description":"One of: play_pause, next, previous, stop"}},"required":["action"]}"""),
-  ).filter { toolStore.isToolEnabled(it.name) } + toolStore.getMcpServers().filter { it.enabled }.flatMap { mcpManager.getToolDefs(it.id) }.filter { toolStore.isToolEnabled(it.name) }
+  ).filter { toolStore.isToolEnabled(it.name) } + toolStore.getMcpServers().filter { it.enabled }.flatMap { server ->
+    var defs = mcpManager.getToolDefs(server.id)
+    if (defs.isEmpty()) {
+      // Auto-discover on first use (cache is in-memory, lost on restart)
+      try {
+        mcpManager.discoverTools(server)
+      } catch (_: Exception) {}
+      defs = mcpManager.getToolDefs(server.id)
+    }
+    defs
+  }.filter { toolStore.isToolEnabled(it.name) }
 
   private fun td(name: String, desc: String, params: String) = StreamingOrchestrator.ToolDef(name, desc, org.json.JSONObject(params))
 

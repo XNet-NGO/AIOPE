@@ -209,7 +209,7 @@ fun ThemeSettingsScreen(onBack: () -> Unit) {
 
 @Composable
 private fun SectionHeader(text: String) {
-  Text(text, fontSize = 14.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 8.dp))
+  Text(text, fontSize = 14.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(top = 8.dp))
 }
 
 @Composable

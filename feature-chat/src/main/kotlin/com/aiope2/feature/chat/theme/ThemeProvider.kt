@@ -93,15 +93,13 @@ fun ThemeProvider(content: @Composable () -> Unit) {
       surfaceContainerLow = uiColor,
     )
   }
-  if (useCustomText && pTextColor != null) {
+  if (useCustomText) {
+    val primary = pTextColor ?: finalScheme.onSurface
+    val secondary = sTextColor ?: primary.copy(alpha = 0.7f)
     finalScheme = finalScheme.copy(
-      onSurface = pTextColor,
-      onBackground = pTextColor,
-      onSurfaceVariant = sTextColor ?: pTextColor.copy(alpha = 0.7f),
-      onPrimary = pTextColor,
-      onPrimaryContainer = pTextColor,
-      onSecondary = pTextColor,
-      onSecondaryContainer = pTextColor,
+      onSurface = primary,
+      onBackground = primary,
+      onSurfaceVariant = secondary,
     )
   }
 

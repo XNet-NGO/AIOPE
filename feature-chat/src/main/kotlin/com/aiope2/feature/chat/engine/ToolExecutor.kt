@@ -663,11 +663,14 @@ class ToolExecutor(
         readTimeout = 15_000
       }
       if (conn.responseCode in 200..299) {
-        val data = org.json.JSONObject(conn.inputStream.bufferedReader(Charsets.UTF_8).readText()).optJSONObject("data")
-        if (data != null) return parseGeoapifyResults(data.toString(), query)
+        val raw = conn.inputStream.bufferedReader(Charsets.UTF_8).readText()
+        val json = org.json.JSONObject(raw)
+        val body = json.optJSONObject("data")?.toString() ?: raw
+        if (body.contains("features")) return parseGeoapifyResults(body, query)
       }
     } catch (_: Exception) {}
-    val apiKey = providerStore.getGeoapifyKey().ifBlank { "d8acb75c06c04ab5a95b498a6a7090c0" }
+    val apiKey = providerStore.getGeoapifyKey()
+    if (apiKey.isBlank()) return "Place search unavailable. Configure location search on the gateway or set a Geoapify key in Settings."
     val conn = (java.net.URL("https://api.geoapify.com/v2/places?categories=commercial,catering,service,entertainment,leisure,sport,tourism,accommodation,education,healthcare&conditions=named&filter=circle:$lng,$lat,5000&bias=proximity:$lng,$lat&limit=5&name=$encoded&apiKey=$apiKey").openConnection() as java.net.HttpURLConnection).apply {
       connectTimeout = 15000
       readTimeout = 15000

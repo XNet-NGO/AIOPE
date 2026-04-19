@@ -31,9 +31,12 @@ class StreamingOrchestrator(
   companion object {
     private val client = OkHttpClient.Builder()
       .connectTimeout(15, TimeUnit.SECONDS)
-      .readTimeout(5, TimeUnit.MINUTES)
+      .readTimeout(10, TimeUnit.MINUTES)
       .writeTimeout(30, TimeUnit.SECONDS)
+      .callTimeout(0, TimeUnit.SECONDS) // no overall call timeout — SSE streams are unbounded
+      .pingInterval(15, TimeUnit.SECONDS) // keep HTTP/2 connection alive between chunks
       .retryOnConnectionFailure(true)
+      .protocols(listOf(okhttp3.Protocol.HTTP_1_1)) // avoid HTTP/2 stream reset issues with SSE
       .build()
     private val JSON_MT = "application/json; charset=utf-8".toMediaType()
     private val PARALLEL_SAFE = setOf(
@@ -196,8 +199,14 @@ class StreamingOrchestrator(
           }
 
           override fun onFailure(eventSource: EventSource, t: Throwable?, response: Response?) {
-            sseError = t?.message ?: response?.let { "HTTP ${it.code}" } ?: "Connection failed"
-            android.util.Log.e("AIOPE2", "SSE failure: $sseError", t)
+            val msg = t?.message ?: response?.let { "HTTP ${it.code}" } ?: "Connection failed"
+            // HTTP/2 stream resets during idle periods are not fatal — ignore if we already got data
+            if (msg.contains("CANCEL") || msg.contains("stream was reset")) {
+              android.util.Log.w("AIOPE2", "SSE stream reset (non-fatal): $msg")
+            } else {
+              sseError = msg
+              android.util.Log.e("AIOPE2", "SSE failure: $sseError", t)
+            }
             latch.countDown()
           }
 

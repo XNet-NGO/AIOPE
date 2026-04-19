@@ -13,6 +13,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
@@ -169,7 +170,7 @@ private fun ChatContent(
   val theme = com.aiope2.feature.chat.theme.LocalThemeState.current
   Box(modifier.background(MaterialTheme.colorScheme.background)) {
     com.aiope2.feature.chat.theme.ChatBackground(theme)
-    Column(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize().alpha(theme.uiOpacity)) {
       // ── Toolbar ──
       Surface(color = MaterialTheme.colorScheme.surface) {
         Box(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp)) {

@@ -61,6 +61,7 @@ fun ThemeSettingsScreen(onBack: () -> Unit) {
   val showThinking by prefs.showThinking.collectAsState(initial = true)
   val showStatusTags by prefs.showStatusTags.collectAsState(initial = true)
   val showToolActivity by prefs.showToolActivity.collectAsState(initial = true)
+  val uiOpacity by prefs.uiOpacity.collectAsState(initial = 1f)
 
   val mediaPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
     if (uri != null) {
@@ -177,6 +178,9 @@ fun ThemeSettingsScreen(onBack: () -> Unit) {
       ToggleRow("Show thinking process", showThinking) { scope.launch { prefs.set(ThemePrefs.SHOW_THINKING, it) } }
       ToggleRow("Show status tags", showStatusTags) { scope.launch { prefs.set(ThemePrefs.SHOW_STATUS_TAGS, it) } }
       ToggleRow("Show tool activity", showToolActivity) { scope.launch { prefs.set(ThemePrefs.SHOW_TOOL_ACTIVITY, it) } }
+      Spacer(Modifier.height(4.dp))
+      Text("UI opacity: ${(uiOpacity * 100).toInt()}%", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+      Slider(value = uiOpacity, onValueChange = { scope.launch { prefs.set(ThemePrefs.UI_OPACITY, it) } }, valueRange = 0.1f..1f)
 
       Spacer(Modifier.height(24.dp))
     }

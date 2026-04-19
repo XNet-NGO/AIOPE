@@ -36,6 +36,7 @@ data class ThemeState(
   val showThinking: Boolean = true,
   val showStatusTags: Boolean = true,
   val showToolActivity: Boolean = true,
+  val uiOpacity: Float = 1f,
 )
 
 val LocalThemeState = compositionLocalOf { ThemeState() }
@@ -91,6 +92,7 @@ fun ThemeProvider(content: @Composable () -> Unit) {
     showThinking = prefs.showThinking.collectAsState(initial = true).value,
     showStatusTags = prefs.showStatusTags.collectAsState(initial = true).value,
     showToolActivity = prefs.showToolActivity.collectAsState(initial = true).value,
+    uiOpacity = prefs.uiOpacity.collectAsState(initial = 1f).value,
   )
 
   CompositionLocalProvider(LocalThemeState provides state) {

@@ -68,7 +68,8 @@ internal fun ProfileEditor(
     autoCompact = m.contextWindow > 0,
   )
 
-  Scaffold(topBar = {
+  val _bgActive = com.aiope2.feature.chat.theme.LocalThemeState.current.useBackground
+  Scaffold(containerColor = if (_bgActive) androidx.compose.ui.graphics.Color.Transparent else androidx.compose.material3.MaterialTheme.colorScheme.background, topBar = {
     TopAppBar(
       title = { Text(p.label.ifBlank { "Edit Provider" }) },
       navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },

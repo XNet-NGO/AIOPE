@@ -63,7 +63,8 @@ internal fun McpServerScreen(toolStore: ToolStore, onBack: () -> Unit) {
     return
   }
 
-  Scaffold(topBar = {
+  val _bgActive1 = com.aiope2.feature.chat.theme.LocalThemeState.current.useBackground
+  Scaffold(containerColor = if (_bgActive1) androidx.compose.ui.graphics.Color.Transparent else androidx.compose.material3.MaterialTheme.colorScheme.background, topBar = {
     TopAppBar(
       title = { Text("MCP Servers") },
       navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },

@@ -38,7 +38,8 @@ internal fun TaskModelScreen(providerStore: ProviderStore, onBack: () -> Unit) {
   val taskStore = remember { com.aiope2.core.network.TaskModelStore(ctx) }
   val profiles = providerStore.getAll()
 
-  Scaffold(topBar = {
+  val _bgActive = com.aiope2.feature.chat.theme.LocalThemeState.current.useBackground
+  Scaffold(containerColor = if (_bgActive) androidx.compose.ui.graphics.Color.Transparent else androidx.compose.material3.MaterialTheme.colorScheme.background, topBar = {
     TopAppBar(
       title = { Text("Default Models per Task") },
       navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },

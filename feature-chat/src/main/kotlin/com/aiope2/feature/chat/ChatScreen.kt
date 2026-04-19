@@ -176,10 +176,10 @@ private fun ChatContent(
           // Left: Chats icon + Share
           Row(modifier = Modifier.align(Alignment.CenterStart)) {
             IconButton(onClick = onChats, modifier = Modifier.size(36.dp)) {
-              Icon(Icons.Default.Forum, "Chats", modifier = Modifier.size(18.dp), tint = Color.White)
+              Icon(Icons.Default.Forum, "Chats", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurface)
             }
             IconButton(onClick = onShareChat, modifier = Modifier.size(36.dp)) {
-              Icon(Icons.Default.Share, "Share", modifier = Modifier.size(18.dp), tint = Color.White)
+              Icon(Icons.Default.Share, "Share", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurface)
             }
           }
           // Center: Model dropdown spinner
@@ -238,7 +238,7 @@ private fun ChatContent(
                 Icons.Default.Settings,
                 "Settings",
                 modifier = Modifier.size(18.dp),
-                tint = Color.White,
+                tint = MaterialTheme.colorScheme.onSurface,
               )
             }
           }

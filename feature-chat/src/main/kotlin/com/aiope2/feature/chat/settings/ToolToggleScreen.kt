@@ -62,7 +62,8 @@ internal fun ToolToggleScreen(toolStore: ToolStore, onBack: () -> Unit) {
     "memory_forget" to "Delete memories",
     "generate_image" to "Generate images (Pollinations)",
   )
-  Scaffold(topBar = {
+  val _bgActive = com.aiope2.feature.chat.theme.LocalThemeState.current.useBackground
+  Scaffold(containerColor = if (_bgActive) androidx.compose.ui.graphics.Color.Transparent else androidx.compose.material3.MaterialTheme.colorScheme.background, topBar = {
     TopAppBar(
       title = { Text("Tools") },
       navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },

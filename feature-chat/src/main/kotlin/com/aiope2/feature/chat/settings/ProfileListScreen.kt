@@ -4,7 +4,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -13,7 +12,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
@@ -35,29 +33,33 @@ import kotlinx.coroutines.withContext
 
 @Composable
 internal fun ProfileList(
-  profiles: List<ProviderProfile>,
-  activeId: String,
   providerStore: ProviderStore,
   chatDao: ChatDao? = null,
-  onSelect: (ProviderProfile) -> Unit,
-  onEdit: (ProviderProfile) -> Unit,
-  onAdd: () -> Unit,
   onAgent: () -> Unit,
   onTasks: () -> Unit,
   onTools: () -> Unit,
   onMcp: () -> Unit,
   onTheme: () -> Unit = {},
+  onProviders: () -> Unit = {},
   onBack: () -> Unit,
 ) {
-  Scaffold(topBar = {
+  val theme = com.aiope2.feature.chat.theme.LocalThemeState.current
+  val scaffoldColor = if (theme.useBackground) androidx.compose.ui.graphics.Color.Transparent else MaterialTheme.colorScheme.background
+  Scaffold(containerColor = scaffoldColor, topBar = {
     TopAppBar(
       title = { Text("Settings") },
+      colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(containerColor = if (theme.useBackground) androidx.compose.ui.graphics.Color.Transparent else MaterialTheme.colorScheme.surface),
       navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
-      actions = { IconButton(onClick = onAdd) { Icon(Icons.Default.Add, "Add") } },
     )
   }) { pad ->
     LazyColumn(Modifier.fillMaxSize().padding(pad)) {
       item {
+        ListItem(
+          headlineContent = { Text("Providers") },
+          supportingContent = { Text("API providers, endpoints, and models", style = MaterialTheme.typography.bodySmall) },
+          modifier = Modifier.clickable { onProviders() },
+        )
+        HorizontalDivider()
         ListItem(
           headlineContent = { Text("Agent") },
           supportingContent = { Text("Customize the system prompt and agent behavior", style = MaterialTheme.typography.bodySmall) },
@@ -203,20 +205,6 @@ internal fun ProfileList(
         )
         HorizontalDivider()
       }
-      items(profiles) { p ->
-        val builtin = ProviderTemplates.byId[p.builtinId]
-        ListItem(
-          headlineContent = { Text("${p.label.ifBlank { builtin?.displayName ?: "Custom" }}") },
-          supportingContent = {
-            Text(
-              "${p.effectiveApiBase().removePrefix("https://").removePrefix("http://").take(40)}  •  ${p.selectedModelId.ifBlank { "no model" }}",
-              style = MaterialTheme.typography.bodySmall,
-            )
-          },
-          trailingContent = { if (p.id == activeId) Text("✔", color = MaterialTheme.colorScheme.primary) },
-          modifier = Modifier.combinedClickable(onClick = { onSelect(p) }, onLongClick = { onEdit(p) }),
-        )
-      }
     }
   }
 }
@@ -224,7 +212,8 @@ internal fun ProfileList(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun TemplatePicker(onPick: (BuiltinProvider) -> Unit, onBack: () -> Unit) {
-  Scaffold(topBar = {
+  val _bgActive = com.aiope2.feature.chat.theme.LocalThemeState.current.useBackground
+  Scaffold(containerColor = if (_bgActive) androidx.compose.ui.graphics.Color.Transparent else MaterialTheme.colorScheme.background, topBar = {
     TopAppBar(
       title = { Text("Add Provider") },
       navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },

@@ -80,12 +80,15 @@ fun ThemeSettingsScreen(onBack: () -> Unit) {
     }
   }
 
-  Scaffold(topBar = {
-    TopAppBar(
-      title = { Text("Theme") },
-      navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
-    )
-  }) { pad ->
+  Scaffold(
+    containerColor = if (prefs.useBackground.collectAsState(initial = false).value) Color.Transparent else MaterialTheme.colorScheme.background,
+    topBar = {
+      TopAppBar(
+        title = { Text("Theme") },
+        navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
+      )
+    },
+  ) { pad ->
     Column(
       Modifier.fillMaxSize().padding(pad).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
       verticalArrangement = Arrangement.spacedBy(8.dp),

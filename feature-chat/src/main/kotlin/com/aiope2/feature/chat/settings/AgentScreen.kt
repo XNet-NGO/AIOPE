@@ -40,7 +40,9 @@ internal fun AgentScreen(dao: ChatDao, onBack: () -> Unit) {
     scope.launch { dao.upsertSetting(SettingsKvEntity(key, value)) }
   }
 
+  val _bgActive = com.aiope2.feature.chat.theme.LocalThemeState.current.useBackground
   Scaffold(
+    containerColor = if (_bgActive) androidx.compose.ui.graphics.Color.Transparent else androidx.compose.material3.MaterialTheme.colorScheme.background,
     topBar = {
       TopAppBar(
         title = { Text("Agent") },

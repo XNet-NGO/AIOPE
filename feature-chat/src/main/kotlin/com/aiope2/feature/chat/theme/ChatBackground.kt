@@ -92,6 +92,6 @@ private fun VideoBackground(uri: String, opacity: Float, muted: Boolean, loop: B
         resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
       }
     },
-    modifier = modifier.alpha(opacity),
+    modifier = modifier.graphicsLayer { alpha = opacity },
   )
 }

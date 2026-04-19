@@ -39,9 +39,9 @@ class ProviderStore @Inject constructor(
       selectedModelId = "google-ai-studio/models-gemma-4-31b-it",
       isActive = true,
       modelConfigs = mapOf(
-        mc("cline/minimax-minimax-m2.5", ctx = 200_000),
-        mc("zen/minimax-m2.5-free", ctx = 200_000),
-        mc("zen/nemotron-3-super-free", tools = true, vision = false, audio = false, video = false, ctx = 200_000),
+        mc("cline/minimax-minimax-m2.5", tools = true, ctx = 200_000),
+        mc("zen/minimax-m2.5-free", tools = true, ctx = 200_000),
+        mc("zen/nemotron-3-super-free", tools = true, vision = false, audio = false, video = false, ctx = 1_000_000),
         mc("zen/big-pickle", tools = true, vision = false, audio = false, video = false),
         mc("cline/z-ai-glm-5", tools = true, vision = false, audio = false, video = false, ctx = 200_000),
         mc("google-ai-studio/models-gemma-4-31b-it", tools = true, vision = true, ctx = 256_000),

@@ -15,6 +15,8 @@ enum class ModelTask(val id: String, val label: String, val description: String)
   IMAGE_RECOGNITION("image", "Image Recognition", "Describe and analyze images"),
   AUDIO_RECOGNITION("audio", "Audio Recognition", "Transcribe and understand audio"),
   VIDEO_RECOGNITION("video", "Video Recognition", "Analyze video content"),
+  TOOL_USE("tool", "Tool Use", "Model for executing tool calls and function calling"),
+  AGENT("agent", "Agent / Planning", "Multi-step reasoning, planning, and orchestration"),
   IMAGE_GENERATION("image_gen", "Image Generation", "Generate images from text prompts"),
   AUDIO_GENERATION("audio_gen", "Audio Generation", "Generate speech and audio"),
   VIDEO_GENERATION("video_gen", "Video Generation", "Generate video from prompts"),

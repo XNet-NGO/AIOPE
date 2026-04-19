@@ -214,7 +214,7 @@ private fun AssistantBubble(
         color = aiBubbleColor,
         modifier = Modifier.fillMaxWidth(),
       ) {
-        Column(Modifier.padding(if (theme.useCustomBubbles) 12.dp else 0.dp)) {
+        Column(Modifier.padding(12.dp)) {
           val content = message.content.trimEnd()
           val mdTheme = rememberMarkdownTheme(cs, com.aiope2.feature.chat.theme.LocalThemeState.current)
           // Detect aiope-ui blocks (complete = has closing ```)

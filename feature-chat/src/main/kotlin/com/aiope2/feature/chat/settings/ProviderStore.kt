@@ -29,6 +29,7 @@ class ProviderStore @Inject constructor(
   }
 
   private fun seedDefault() {
+    fun mc(id: String, tools: Boolean? = null, vision: Boolean? = null, audio: Boolean? = null, video: Boolean? = null, ctx: Int = 200_000, reasoning: String? = "auto", compact: Boolean = true) = id to ModelConfig(modelId = id, toolsOverride = tools, visionOverride = vision, audioOverride = audio, videoOverride = video, temperature = 0.6f, reasoningEffort = reasoning, contextTokens = ctx, autoCompact = compact)
     val default = ProviderProfile(
       id = "default_gateway",
       builtinId = "aiope_gateway",
@@ -38,14 +39,22 @@ class ProviderStore @Inject constructor(
       selectedModelId = "google-ai-studio/models-gemma-4-31b-it",
       isActive = true,
       modelConfigs = mapOf(
-        "google-ai-studio/models-gemma-4-31b-it" to ModelConfig(
-          modelId = "google-ai-studio/models-gemma-4-31b-it",
-          toolsOverride = true,
-          visionOverride = true,
-          reasoningEffort = "auto",
-          contextTokens = 256_000,
-          autoCompact = true,
-        ),
+        mc("cline/minimax-minimax-m2.5"),
+        mc("zen/minimax-m2.5-free"),
+        mc("zen/nemotron-3-super-free", tools = true, vision = false, audio = false, video = false),
+        mc("zen/big-pickle", tools = true, vision = false, audio = false, video = false),
+        mc("cline/z-ai-glm-5", tools = true, vision = false, audio = false, video = false),
+        mc("google-ai-studio/models-gemma-4-31b-it", tools = true, vision = true, ctx = 256_000),
+        mc("google-ai-studio/models-gemma-4-26b-a4b-it", vision = true, ctx = 256_000),
+        mc("google-ai-studio/models-gemma-3-27b-it", tools = false, vision = true, audio = false, video = false, ctx = 40_000),
+        mc("google-ai-studio/models-gemma-3-12b-it", tools = false, vision = true, audio = false, video = false, ctx = 128_000, reasoning = null),
+        mc("google-ai-studio/models-gemma-3-4b-it", tools = false, vision = true, audio = false, video = false, ctx = 32_000, reasoning = null),
+        mc("google-ai-studio/models-gemma-3-1b-it", tools = false, vision = false, audio = false, video = false, ctx = 1_000_000, reasoning = null),
+        mc("google-ai-studio/models-gemma-3n-e2b-it", tools = false, vision = false, audio = false, video = false, ctx = 8_000, reasoning = null),
+        mc("google-ai-studio/models-gemma-3n-e4b-it", tools = false, vision = false, audio = false, video = false, ctx = 8_000, reasoning = null),
+        mc("openrouter/openrouter-free", vision = true, ctx = 256_000),
+        mc("pollinations/openai", tools = true, vision = true, audio = false, video = false, ctx = 128_000, compact = false),
+        mc("pollinations/openai-fast", vision = true, ctx = 128_000),
       ),
     )
     save(default)

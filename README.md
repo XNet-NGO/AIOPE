@@ -1,135 +1,235 @@
-# AIOPE — Artificial Intelligence Operations
+# AIOPE
 
-**AI-powered terminal and assistant for Android** — a chat interface with tool use, dynamic UI rendering, a full Linux terminal, live data, location awareness, and native markdown. Runs entirely on-device with any OpenAI-compatible API.
+**An AI that doesn't just talk. It acts.**
 
-The AI doesn't just answer questions. It acts — and now it can build interactive interfaces on the fly.
+AIOPE is an Android AI assistant with 43 tools, a full Linux terminal, browser automation, location awareness, live data feeds, and the ability to build native interactive UI on the fly. It connects to any OpenAI-compatible API and runs the entire tool loop on-device.
 
-## Features
+It ships with the [AIOPE Gateway](https://github.com/XNet-NGO/aiope-gateway) -- a self-hosted inference proxy that routes to Google AI Studio, Pollinations, and other providers with a single API key. The gateway handles model routing, rate limiting, and API key management so the client stays clean.
 
-### Dynamic UI (aiope-ui)
-The AI can render rich, interactive native UI components directly in chat responses. Inspired by [Kai](https://github.com/nicholasgasior/kai)'s dynamic UI system.
+---
 
-- **30+ component types**: text, buttons, cards, tabs, accordions, tables, forms, alerts, badges, stats, code blocks, quotes, images, icons, progress bars, countdowns, avatars
-- **Interactive forms**: text inputs, checkboxes, switches, sliders, radio groups, chip groups, select dropdowns — with `collectFrom` to gather and submit form data
-- **Callback actions**: button presses send structured data back to the AI to continue multi-step workflows
-- **Toggle actions**: show/hide elements, open URLs, copy to clipboard
-- **Streaming shimmer**: shows "Building UI…" animation while the AI generates the UI block
-- **Button pulse**: pressed buttons animate while waiting for the AI response
-- **Text selection**: long-press to select and copy text from rendered UI
-- **Dark theme**: cyan accents, dark cards, color-coded alerts, pill-style tabs
-- **Toggleable**: Settings → Tools → Dynamic UI (off for legacy models)
+## What It Does
 
-### Tool Use (28 tools)
-The AI autonomously calls tools in a loop — reasoning, executing, reading results, and continuing until done. Up to 100 tool rounds per turn.
+AIOPE operates in three modes:
 
-| Tool | What it does |
+- **Chat** -- conversational AI with full tool access
+- **Plan** -- read-only analysis mode; the AI explores context and produces a structured plan without executing anything
+- **Build** -- autonomous execution mode; the AI chains tools without asking for confirmation until the task is complete
+
+The AI runs a tool loop: reason, call a tool, read the result, decide what to do next. Up to 100 rounds per turn. It handles multi-step tasks -- research a topic, write code, save it to a file, run it in the terminal, fix errors, and report back -- all in one conversation turn.
+
+### Models Per Task
+
+Different tasks route to different models automatically:
+
+| Task | Default Model |
 |---|---|
-| `run_sh` | Execute Android shell commands |
-| `run_proot` | Full Alpine Linux environment (apt, python, gcc) |
-| `read_file` / `write_file` | Read and write files |
-| `list_directory` | List directory contents |
-| `get_location` | GPS coordinates |
-| `search_location` | Search places, addresses, businesses |
+| Chat (primary) | Gemma 4 31B IT (256K context) |
+| Subagent | Gemma 4 26B A4B (MoE, 4B active) |
+| Summary | Gemma 3 27B IT |
+| Title generation | Gemma 3 1B IT |
+| Translation | Gemma 3 12B IT |
+| Image recognition | Gemma 3 27B IT |
+| Image generation | Klein (Pollinations) |
+
+All configurable. Any model on any provider for any task.
+
+---
+
+## Tools (43)
+
+### System
+| Tool | Description |
+|---|---|
+| `run_sh` | Android shell commands |
+| `run_proot` | Full Alpine Linux (apt, python, gcc, node) |
+| `read_file` / `write_file` | File I/O |
+| `list_directory` | Directory listing |
+| `device_info` | Battery, storage, network, display |
+| `clipboard_copy` / `clipboard_read` | Clipboard access |
+| `media_control` | Play, pause, skip, volume |
+
+### Communication
+| Tool | Description |
+|---|---|
+| `read_sms` / `send_sms` / `delete_sms` | SMS access |
+| `read_contacts` | Contact lookup |
+| `send_notification` | Push notifications |
+| `read_calendar` / `create_event` / `delete_event` | Calendar management |
+| `set_alarm` / `dismiss_alarm` | Alarm control |
 | `open_intent` | Open URLs, maps, navigation, dialer, email |
-| `fetch_url` | Fetch and extract web content |
-| `query_data` | Live data: weather, earthquakes, NASA, fires, UV, air quality |
-| `search_web` / `search_images` | Web and image search |
-| `browser_*` | Full browser automation (navigate, click, fill, eval, scroll) |
-| `memory_store` / `memory_recall` / `memory_forget` | Persistent memory |
-| `image_generate` / `analyze_image` | Image generation and analysis |
 
-### In-App Browser
-A controllable WebView that both user and AI share in real time. AI can navigate, click, fill forms, run JS, scroll, and read page content. Split view alongside chat or full screen.
-
-### Embedded Linux Terminal
-Full terminal emulator with proot-based Alpine environment. Install packages, run scripts, compile code — all on your phone.
-
-### Native Markdown Rendering
-Powered by [UniversalMarkdown](https://github.com/XNet-NGO/UniversalMarkdown):
-- Syntax-highlighted code blocks with copy button
-- GFM tables, LaTeX math (inline + block), block quotes
-- Task lists, headings (H1–H6), horizontal rules
-- Native text selection across all content
-
-### Streaming & Reasoning
-- Real-time SSE streaming with token-by-token display
-- Reasoning/thinking block support (DeepSeek R1, OpenAI o-series, `<think>` tags)
-- Collapsible thinking preview with shimmer animation
-
-### Location & Live Data
-- GPS location with interactive map cards (MapLibre)
-- Nearby place search, turn-by-turn navigation
-- Weather, forecasts, earthquakes, wildfires, NASA APOD, ISS position, solar flares, asteroid approaches, and more
-
-### Multi-Provider Support
-Works with any OpenAI-compatible API:
-
-| Provider | Notes |
+### Web and Search
+| Tool | Description |
 |---|---|
-| Pollinations | Free, no API key |
-| OpenAI | GPT-4o, o4-mini |
-| Anthropic | Claude Sonnet 4, Claude 3.5 Haiku |
-| Google AI Studio | Gemini 2.0 Flash (1M context) |
-| DeepSeek | V3, R1 (reasoning) |
-| OpenRouter | Free tier available |
-| Groq | Llama 3.3 70B (fast) |
-| Ollama | Local models |
-| Custom | Any OpenAI-compatible endpoint |
+| `search_web` / `search_images` | Web and image search |
+| `fetch_url` | Fetch and extract web content |
+| `query_data` | Live feeds: weather, earthquakes, NASA APOD, wildfires, UV index, air quality, ISS, solar flares, asteroids |
 
-### MCP Support
-Connect external MCP (Model Context Protocol) servers to extend the AI's capabilities with additional tools. HTTP and SSE transports supported.
+### Browser Automation
+| Tool | Description |
+|---|---|
+| `browser_navigate` / `browser_back` | Navigation |
+| `browser_content` / `browser_elements` | Read page content and DOM |
+| `browser_click` / `browser_fill` | Interact with elements |
+| `browser_eval` | Execute JavaScript |
+| `browser_scroll` | Scroll control |
+| `browser_open` / `browser_close` / `browser_maximize` | Window management |
 
-### Conversation Management
+### Location
+| Tool | Description |
+|---|---|
+| `get_location` | GPS coordinates |
+| `search_location` | Places, addresses, businesses (Geoapify via gateway) |
+
+### AI
+| Tool | Description |
+|---|---|
+| `image_generate` | Text-to-image generation |
+| `analyze_image` | Vision/image analysis |
+| `task` | Spawn a subagent for parallel work |
+| `memory_store` / `memory_recall` / `memory_forget` | Persistent cross-conversation memory |
+
+---
+
+## Dynamic UI
+
+The AI can render native Android UI components directly in chat. Not images. Not web views. Real Compose components.
+
+30+ component types: text, buttons, cards, tabs, accordions, tables, forms, alerts, badges, stats, code blocks, quotes, images, icons, progress bars, countdowns, avatars, inputs, checkboxes, switches, sliders, radio groups, chip groups, select dropdowns.
+
+Forms collect data and submit it back to the AI. Buttons trigger callbacks that continue multi-step workflows. The AI builds the UI, the user interacts with it, and the AI responds to those interactions.
+
+Toggleable per-profile for models that don't handle structured output well.
+
+---
+
+## Browser
+
+A shared WebView that both the user and AI can control simultaneously. The AI navigates pages, reads content, clicks elements, fills forms, runs JavaScript, and scrolls -- all through tool calls. Split view alongside chat or full screen.
+
+---
+
+## Terminal
+
+Full terminal emulator backed by a proot Alpine Linux environment. Install packages with `apk add`, run Python scripts, compile C code, use git -- on your phone. The AI uses it through `run_proot` for anything that needs a real shell.
+
+---
+
+## Markdown
+
+Powered by [UniversalMarkdown](https://github.com/XNet-NGO/UniversalMarkdown), a custom Compose renderer built on commonmark-java and Markwon:
+
+- Syntax-highlighted code blocks with copy button
+- GFM tables, task lists, strikethrough
+- LaTeX math (inline and block) with PDF export
+- Block quotes, headings, horizontal rules
+- Native text selection across all rendered content
+- Streaming animation during token-by-token display
+
+---
+
+## Themes
+
+Four modes: Dark, Light, System (Material You dynamic colors from Android 12+), and Custom.
+
+Custom mode exposes: accent color, UI surface color, primary/secondary text colors, user/AI bubble colors with opacity, background image or video with opacity. Every surface in the app respects the theme -- toolbars, pills, bubbles, tool panels, reasoning blocks.
+
+WCAG 2.1 Level AA contrast targets in both light and dark modes.
+
+---
+
+## Streaming and Reasoning
+
+Real-time SSE streaming with token-by-token display. Supports reasoning/thinking blocks from DeepSeek R1, OpenAI o-series, and any model that uses `<think>` tags. Thinking content renders in collapsible panels with shimmer animation during streaming and a fade mask for partial display.
+
+---
+
+## Providers
+
+Works with any OpenAI-compatible API. Ships pre-configured for the AIOPE Gateway, which proxies to:
+
+- Google AI Studio (Gemma 3, Gemma 4, Gemma 3n)
+- Pollinations (Klein image generation, free inference)
+- Any additional backend you configure
+
+Also supports direct connections to OpenAI, Anthropic, DeepSeek, OpenRouter, Groq, Ollama, and any custom endpoint.
+
+MCP (Model Context Protocol) support for extending the AI with external tool servers. HTTP and SSE transports.
+
+---
+
+## Conversations
+
 - Multiple conversations with auto-generated titles
-- Edit & resend, retry from any point, fork conversations
-- Auto-compact when approaching context limits
-- Image/file attachments, speech-to-text, LaTeX PDF export
+- Edit and resend from any point in the conversation
+- Retry, fork, and compact conversations
+- Auto-compact when approaching context window limits
+- Image and file attachments (images, PDFs, text files)
+- Speech-to-text input
+- Text-to-speech output
+- Inline translation to 12 languages
+- Share conversations as text
+
+---
 
 ## Setup
 
-1. Clone and open in Android Studio
-2. Build and install (minSdk 26, targetSdk 34)
-3. Settings → add a provider (Pollinations works with no API key)
-4. For Linux terminal: Settings → install proot environment
+1. Clone and build with Android Studio (or `./gradlew :app:assembleRelease`)
+2. Install on any Android 8.0+ device
+3. The AIOPE Gateway is pre-configured -- works out of the box
+4. For the Linux terminal: Settings > install proot environment
 
-## Requirements
+Or download the latest APK from [Releases](https://github.com/XNet-NGO/AIOPE/releases).
+
+### Requirements
 
 - Android 8.0+ (API 26)
-- Internet connection for LLM API calls
+- Internet connection for API calls
 - GPS for location features (optional)
+- ~100MB for proot Linux environment (optional)
+
+---
 
 ## Architecture
 
 ```
-app/                          # Android app module
-core-designsystem/            # Theme, colors, typography
-core-network/                 # LLM provider, SSE streaming, API client
-core-terminal/                # Terminal emulator, proot bootstrap
-feature-chat/                 # Chat UI, ViewModel, tools, settings
-  dynamicui/                  # aiope-ui parser, renderer, node types
-  engine/                     # StreamingOrchestrator, tool execution loop
-  browser/                    # WebBrowser, BrowserPanel, BrowserServer
-  location/                   # GPS provider, map card, geocoding
-  settings/                   # Provider config, model config, MCP
+app/                          Main Android module
+core-designsystem/            Theme, colors, typography
+core-network/                 LLM provider, SSE streaming, task model routing
+core-preferences/             DataStore preferences
+core-data/                    Data layer
+core-terminal/                Terminal emulator, proot bootstrap
+feature-chat/
+  engine/                     StreamingOrchestrator, ToolExecutor, AgentMode
+  dynamicui/                  aiope-ui parser, renderer, 30+ node types
+  browser/                    WebBrowser, BrowserPanel, BrowserServer
+  location/                   GPS provider, map cards, geocoding
+  settings/                   Provider config, model-per-task, MCP, themes
+  theme/                      ThemeProvider, ThemeState, ChatBackground
 ```
+
+---
 
 ## License
 
 AIOPE original code is licensed under the **Business Source License 1.1** (BSL 1.1).
-Free to use, not to modify or distribute. Converts to Apache 2.0 on 2030-04-10.
+Free to use, study, and self-host. Not to modify or redistribute. Converts to Apache 2.0 on 2030-04-10.
 
-© 2026 XNet Inc. — Joshua S. Doucette
+Copyright 2026 XNet Inc. -- Joshua S. Doucette
 Contact: joshuadoucette@xnet.ngo | pr@xnet.ngo
 
-## Attributions & Third-Party Code
+---
+
+## Attributions
 
 AIOPE builds on the following open-source projects, each under their original licenses:
 
 | Component | Source | License |
 |---|---|---|
-| Dynamic UI system | Inspired by [nicholasgasior/kai](https://github.com/nicholasgasior/kai) | Apache 2.0 |
+| Dynamic UI | Inspired by [nicholasgasior/kai](https://github.com/nicholasgasior/kai) | Apache 2.0 |
 | App scaffold | [skydoves/chatgpt-android](https://github.com/skydoves/chatgpt-android) | Apache 2.0 |
-| Markdown renderer | [XNet-NGO/UniversalMarkdown](https://github.com/XNet-NGO/UniversalMarkdown) | Apache 2.0 |
+| Markdown | [XNet-NGO/UniversalMarkdown](https://github.com/XNet-NGO/UniversalMarkdown) | BSL 1.1 |
 | Markdown base | [antgroup/FluidMarkdown](https://github.com/antgroup/FluidMarkdown) | Apache 2.0 |
 | Markwon | [noties/markwon](https://github.com/noties/markwon) | Apache 2.0 |
 | Terminal | [termux/termux-app](https://github.com/termux/termux-app) | GPL 3.0 |
@@ -138,8 +238,10 @@ AIOPE builds on the following open-source projects, each under their original li
 | Prism4j | [noties/Prism4j](https://github.com/noties/Prism4j) | Apache 2.0 |
 | JLatexMath | [opencollab/jlatexmath](https://github.com/opencollab/jlatexmath) | GPL 2.0+ |
 
-The BSL 1.1 applies only to XNet's original code. All forked and third-party components retain their original licenses.
+The BSL 1.1 applies only to XNet's original code. All third-party components retain their original licenses.
+
+---
 
 ## Contributing
 
-Contributions welcome. Please open an issue first to discuss changes. PRs should target the `main` branch.
+Contributions welcome. Open an issue first to discuss. PRs target `main`.

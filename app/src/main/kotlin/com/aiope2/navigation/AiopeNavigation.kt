@@ -9,13 +9,19 @@ import com.aiope2.feature.chat.db.ChatDao
 import com.aiope2.feature.chat.settings.ProviderStore
 import com.aiope2.feature.chat.settings.SettingsScreen
 import com.aiope2.feature.chat.settings.ToolStore
-import javax.inject.Inject
+import com.aiope2.feature.remote.ui.ServerListScreen
 
 fun NavGraphBuilder.aiopeNavigation(composeNavigator: AppComposeNavigator, providerStore: ProviderStore, toolStore: ToolStore, chatDao: ChatDao) {
   composable(route = AiopeScreens.Chat.route) {
     ChatScreen(onOpenSettings = { composeNavigator.navigate(AiopeScreens.Settings.route) })
   }
   composable(route = AiopeScreens.Settings.route) {
-    SettingsScreen(providerStore = providerStore, toolStore = toolStore, chatDao = chatDao, onBack = { composeNavigator.navigateUp() })
+    SettingsScreen(
+      providerStore = providerStore,
+      toolStore = toolStore,
+      chatDao = chatDao,
+      onBack = { composeNavigator.navigateUp() },
+      serversContent = { onBack -> ServerListScreen(onBack = onBack) },
+    )
   }
 }

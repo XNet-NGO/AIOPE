@@ -39,6 +39,7 @@ internal fun ProfileList(
   onTasks: () -> Unit,
   onTools: () -> Unit,
   onMcp: () -> Unit,
+  onServers: () -> Unit = {},
   onTheme: () -> Unit = {},
   onProviders: () -> Unit = {},
   onBack: () -> Unit,
@@ -76,6 +77,12 @@ internal fun ProfileList(
           headlineContent = { Text("MCP Servers") },
           supportingContent = { Text("Add remote tool servers via Model Context Protocol", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) },
           modifier = Modifier.clickable { onMcp() },
+        )
+        HorizontalDivider()
+        ListItem(
+          headlineContent = { Text("Remote Servers") },
+          supportingContent = { Text("Deploy and manage SSH dev servers controlled by AIOPE", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) },
+          modifier = Modifier.clickable { onServers() },
         )
         HorizontalDivider()
         ListItem(

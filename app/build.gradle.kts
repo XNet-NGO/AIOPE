@@ -66,6 +66,7 @@ dependencies {
 
   // feature modules
   implementation(project(":feature-chat"))
+  implementation(project(":feature-remote"))
 
   // compose
   implementation(libs.androidx.appcompat)

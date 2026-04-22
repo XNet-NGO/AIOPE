@@ -13,6 +13,7 @@ import com.aiope2.feature.chat.db.MessageEntity
 import com.aiope2.feature.chat.engine.StreamingOrchestrator
 import com.aiope2.feature.chat.engine.TokenCounter
 import com.aiope2.feature.chat.engine.ToolExecutor
+import com.aiope2.core.model.RemoteToolBridge
 import com.aiope2.feature.chat.settings.McpManager
 import com.aiope2.feature.chat.settings.ProviderStore
 import com.aiope2.feature.chat.settings.ToolStore
@@ -31,6 +32,7 @@ class ChatViewModel @Inject constructor(
   private val chatDao: ChatDao,
   val providerStore: ProviderStore,
   val toolStore: ToolStore,
+  private val remoteToolBridge: RemoteToolBridge,
 ) : AndroidViewModel(application) {
 
   private val _messages = MutableStateFlow<List<ChatMessage>>(emptyList())
@@ -64,6 +66,11 @@ class ChatViewModel @Inject constructor(
   fun setAgentMode(mode: com.aiope2.feature.chat.engine.AgentMode) {
     _agentMode.value = mode
   }
+
+  private val _autoRun = MutableStateFlow(false)
+  val autoRun = _autoRun.asStateFlow()
+  fun setAutoRun(on: Boolean) { _autoRun.value = on }
+  private var autoRunRounds = 0
 
   fun switchModel(modelId: String) {
     val p = providerStore.getActive()
@@ -186,7 +193,7 @@ class ChatViewModel @Inject constructor(
       md to "text/markdown"
     }
     val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-      type = mime
+      type = "text/plain"
       putExtra(android.content.Intent.EXTRA_TEXT, text)
       putExtra(android.content.Intent.EXTRA_SUBJECT, "AIOPE Conversation")
     }
@@ -307,6 +314,7 @@ class ChatViewModel @Inject constructor(
 
     val userMsg = ChatMessage(role = Role.USER, content = text, imageUris = imageUris)
     if (_subagentManager != null) _subagentManager!!.clear()
+    if (imageUris.isNotEmpty()) autoRunRounds = 0 // user-initiated with images resets counter
     _messages.value = _messages.value + userMsg
 
     cancelStreaming()
@@ -350,7 +358,7 @@ class ChatViewModel @Inject constructor(
         val chatMessages = buildSystemMessages(mc)
         val maxTokens = mc.contextTokens.toLong()
         var tokenCount = TokenCounter.countMessages(chatMessages, mc.modelId)
-        val history = _messages.value.dropLast(1).reversed()
+        val history = _messages.value.dropLast(2).reversed()
         val trimmed = mutableListOf<Pair<String, String>>()
         for (msg in history) {
           val msgTokens = TokenCounter.count(msg.content, mc.modelId) + 4
@@ -448,6 +456,7 @@ class ChatViewModel @Inject constructor(
               toolResultsList.add(r.result.take(2000))
               if (r.result.startsWith("Error:") || r.result.startsWith("FAILED")) toolErrorsList.add("${r.name}: ${r.result.take(200)}")
             }
+            sb.clear()
           }
 
           chunk.error?.let { sb.append("\nError: $it") }
@@ -513,6 +522,16 @@ class ChatViewModel @Inject constructor(
           chatDao.updateConversation(conversationId, text.take(50))
           // Auto-generate title using TITLE task model
           generateTitle(text)
+        }
+
+        // Auto-continue when tools were used
+        val hadTools = toolCallsList.isNotEmpty()
+        if (_autoRun.value && hadTools && autoRunRounds < 20) {
+          autoRunRounds++
+          val prompt = kotlinx.coroutines.runBlocking { chatDao.getSetting("agent_auto_run_prompt") } ?: "continue"
+          withContext(Dispatchers.Main) { send(prompt) }
+        } else {
+          autoRunRounds = 0
         }
       } catch (_: kotlinx.coroutines.CancellationException) { /* stopped */ } catch (e: Exception) {
         val updated = _messages.value.toMutableList()
@@ -733,6 +752,7 @@ class ChatViewModel @Inject constructor(
               toolResultsList.add(r.result.take(2000))
               if (r.result.startsWith("Error:") || r.result.startsWith("FAILED")) toolErrorsList.add("${r.name}: ${r.result.take(200)}")
             }
+            sb.clear()
           }
           chunk.error?.let { sb.append("\nError: $it") }
           if (chunk.isDone && isReasoning && currentReasoning.isNotEmpty()) {
@@ -796,6 +816,7 @@ class ChatViewModel @Inject constructor(
       onBrowserMaximized = { setBrowserMaximized(it) },
       resolveTaskModel = { resolveTaskModel(it) },
       getAgentMode = { _agentMode.value },
+      remoteToolBridge = remoteToolBridge,
     ).also { te ->
       _subagentManager = com.aiope2.feature.chat.engine.SubagentManager(
         createOrchestrator = { tools, onToolCall ->
@@ -827,7 +848,13 @@ class ChatViewModel @Inject constructor(
     val msgs = mutableListOf<Pair<String, String>>()
     val modePrefix = _agentMode.value.systemPrefix
     val prompt = com.aiope2.feature.chat.settings.buildAgentPrompt(chatDao)
-    val full = if (modePrefix.isNotBlank()) "$modePrefix\n\n$prompt" else prompt
+    val remoteCtx = remoteToolBridge.buildSystemContext()
+    val parts = listOfNotNull(
+      modePrefix.takeIf { it.isNotBlank() },
+      prompt.takeIf { it.isNotBlank() },
+      remoteCtx.takeIf { it.isNotBlank() },
+    )
+    val full = parts.joinToString("\n\n")
     if (full.isNotBlank()) msgs.add("system" to full)
     return msgs
   }
@@ -843,5 +870,10 @@ class ChatViewModel @Inject constructor(
     canvas.drawColor(android.graphics.Color.BLACK)
     canvas.drawBitmap(bmp, ((size - w) / 2f), ((size - h) / 2f), null)
     return out
+  }
+
+  override fun onCleared() {
+    super.onCleared()
+    kotlinx.coroutines.runBlocking { remoteToolBridge.disconnectAll() }
   }
 }

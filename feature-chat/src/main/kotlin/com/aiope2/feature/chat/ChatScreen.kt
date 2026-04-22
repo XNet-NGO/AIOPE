@@ -15,6 +15,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
@@ -38,6 +40,7 @@ fun ChatScreen(viewModel: ChatViewModel = hiltViewModel(), onOpenSettings: () ->
   val browserVisible by viewModel.browserVisible.collectAsStateWithLifecycle()
   val browserMaximized by viewModel.browserMaximized.collectAsStateWithLifecycle()
   val agentMode by viewModel.agentMode.collectAsStateWithLifecycle()
+  val autoRun by viewModel.autoRun.collectAsStateWithLifecycle()
   val subagentTasks by viewModel.subagentManager.tasks.collectAsStateWithLifecycle()
   val config = LocalConfiguration.current
   val isLandscape = config.screenWidthDp > config.screenHeightDp
@@ -55,6 +58,7 @@ fun ChatScreen(viewModel: ChatViewModel = hiltViewModel(), onOpenSettings: () ->
         ChatContent(
           messages = messages, isStreaming = isStreaming,
           agentMode = agentMode, onModeChange = { viewModel.setAgentMode(it) },
+          autoRun = autoRun, onAutoRunChange = { viewModel.setAutoRun(it) },
           subagentTasks = subagentTasks,
           terminalVisible = terminalVisible,
           browserVisible = browserVisible,
@@ -96,6 +100,7 @@ fun ChatScreen(viewModel: ChatViewModel = hiltViewModel(), onOpenSettings: () ->
         ChatContent(
           messages = messages, isStreaming = isStreaming,
           agentMode = agentMode, onModeChange = { viewModel.setAgentMode(it) },
+          autoRun = autoRun, onAutoRunChange = { viewModel.setAutoRun(it) },
           subagentTasks = subagentTasks,
           terminalVisible = terminalVisible,
           browserVisible = browserVisible,
@@ -145,6 +150,8 @@ private fun ChatContent(
   isStreaming: Boolean,
   agentMode: com.aiope2.feature.chat.engine.AgentMode = com.aiope2.feature.chat.engine.AgentMode.CHAT,
   onModeChange: (com.aiope2.feature.chat.engine.AgentMode) -> Unit = {},
+  autoRun: Boolean = false,
+  onAutoRunChange: (Boolean) -> Unit = {},
   subagentTasks: List<com.aiope2.feature.chat.engine.SubagentManager.SubagentTask> = emptyList(),
   terminalVisible: Boolean,
   browserVisible: Boolean,
@@ -328,7 +335,7 @@ private fun ChatContent(
 
       // ── Input ──
       Surface(color = MaterialTheme.colorScheme.surface) {
-        ChatInput(onSend = onSend, onStop = onStop, isStreaming = isStreaming, editText = editText, onEditTextChange = onEditTextChange)
+        ChatInput(onSend = onSend, onStop = onStop, isStreaming = isStreaming, editText = editText, onEditTextChange = onEditTextChange, autoRun = autoRun, onAutoRunChange = onAutoRunChange)
       }
     }
   }
@@ -450,7 +457,7 @@ private fun MessageList(
 // ── Input bar ──
 
 @Composable
-private fun ChatInput(onSend: (String, List<String>) -> Unit, onStop: () -> Unit = {}, isStreaming: Boolean, editText: String = "", onEditTextChange: (String) -> Unit = {}) {
+private fun ChatInput(onSend: (String, List<String>) -> Unit, onStop: () -> Unit = {}, isStreaming: Boolean, editText: String = "", onEditTextChange: (String) -> Unit = {}, autoRun: Boolean = false, onAutoRunChange: (Boolean) -> Unit = {}) {
   var text by remember { mutableStateOf("") }
   val pendingImages = remember { mutableStateListOf<String>() }
 
@@ -608,6 +615,12 @@ private fun ChatInput(onSend: (String, List<String>) -> Unit, onStop: () -> Unit
         Icon(Icons.Default.Clear, "Clear", tint = MaterialTheme.colorScheme.onSurface)
       }
       Spacer(Modifier.weight(1f))
+      // Auto-run toggle (vertical: up=off, down=on)
+      Switch(
+        checked = autoRun,
+        onCheckedChange = onAutoRunChange,
+        modifier = Modifier.graphicsLayer { rotationZ = 90f }.scale(0.65f),
+      )
       // Send / Stop
       Button(
         onClick = {

@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import com.aiope2.core.network.ProviderProfile
@@ -13,7 +14,7 @@ import com.aiope2.feature.chat.theme.LocalThemeState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(providerStore: ProviderStore, toolStore: ToolStore, chatDao: ChatDao, onBack: () -> Unit) {
+fun SettingsScreen(providerStore: ProviderStore, toolStore: ToolStore, chatDao: ChatDao, onBack: () -> Unit, serversContent: (@Composable (onBack: () -> Unit) -> Unit)? = null) {
   val theme = LocalThemeState.current
   var screen by remember { mutableStateOf("list") }
   var editId by remember { mutableStateOf<String?>(null) }
@@ -30,7 +31,7 @@ fun SettingsScreen(providerStore: ProviderStore, toolStore: ToolStore, chatDao: 
       when (screen) {
         "list" -> ProfileList(
           providerStore, chatDao,
-          onAgent = { screen = "agent" }, onTasks = { screen = "tasks" }, onTools = { screen = "tools" }, onMcp = { screen = "mcp" }, onTheme = { screen = "theme" }, onProviders = { screen = "providers" }, onBack = onBack,
+          onAgent = { screen = "agent" }, onTasks = { screen = "tasks" }, onTools = { screen = "tools" }, onMcp = { screen = "mcp" }, onServers = { screen = "servers" }, onTheme = { screen = "theme" }, onProviders = { screen = "providers" }, onBack = onBack,
         )
 
         "theme" -> com.aiope2.feature.chat.theme.ThemeSettingsScreen(onBack = { screen = "list" })
@@ -40,6 +41,8 @@ fun SettingsScreen(providerStore: ProviderStore, toolStore: ToolStore, chatDao: 
         "agent" -> AgentScreen(dao = chatDao, onBack = { screen = "list" })
 
         "mcp" -> McpServerScreen(toolStore, onBack = { screen = "list" })
+
+        "servers" -> serversContent?.invoke { screen = "list" }
 
         "pick" -> TemplatePicker(onPick = { b ->
           val p = ProviderProfile(builtinId = b.id, label = b.displayName, apiBase = b.apiBase ?: "", selectedModelId = b.defaultModels.firstOrNull()?.id ?: "")

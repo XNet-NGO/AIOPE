@@ -80,3 +80,6 @@
 # Room
 -keep class * extends androidx.room.RoomDatabase
 -keep @androidx.room.Entity class *
+
+# SSHJ / BouncyCastle
+-dontwarn sun.security.x509.X509Key

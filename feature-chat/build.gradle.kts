@@ -17,6 +17,7 @@ android {
 
 dependencies {
   implementation(project(":core-data"))
+  implementation(project(":core-model"))
   implementation(project(":core-terminal"))
 
   implementation(libs.androidx.lifecycle.runtimeCompose)

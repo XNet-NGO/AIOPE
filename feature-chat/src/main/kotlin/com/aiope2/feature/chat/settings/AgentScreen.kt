@@ -32,6 +32,7 @@ internal fun AgentScreen(dao: ChatDao, onBack: () -> Unit) {
         values[key] = dao.getSetting(key) ?: sub.default
       }
     }
+    values["agent_auto_run_prompt"] = dao.getSetting("agent_auto_run_prompt") ?: "continue"
     loaded = true
   }
 
@@ -93,6 +94,17 @@ internal fun AgentScreen(dao: ChatDao, onBack: () -> Unit) {
             )
           }
         }
+      }
+      item(key = "auto_run_prompt") {
+        Text("Auto-Run", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 16.dp, bottom = 4.dp))
+        OutlinedTextField(
+          value = values["agent_auto_run_prompt"] ?: "continue",
+          onValueChange = { save("agent_auto_run_prompt", it) },
+          label = { Text("Auto-run prompt") },
+          placeholder = { Text("Message sent when auto-run continues", fontSize = 12.sp) },
+          modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+          singleLine = true,
+        )
       }
     }
   }

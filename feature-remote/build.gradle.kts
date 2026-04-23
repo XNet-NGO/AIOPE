@@ -21,7 +21,7 @@ dependencies {
   implementation(libs.androidx.room.ktx)
   ksp(libs.androidx.room.compiler)
 
-  implementation("com.hierynomus:sshj:0.39.0")
+  implementation("com.hierynomus:sshj:0.40.0")
   implementation("org.bouncycastle:bcprov-jdk18on:1.80")
   implementation("org.bouncycastle:bcpkix-jdk18on:1.80")
 

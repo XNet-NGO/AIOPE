@@ -1,0 +1,15 @@
+<svg width="1280" height="640" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0f0f23;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1a1a3e;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="640" fill="url(#bg)"/>
+  <text x="640" y="200" font-family="system-ui, -apple-system, sans-serif" font-size="96" font-weight="bold" fill="#ffffff" text-anchor="middle">AIOPE</text>
+  <text x="640" y="270" font-family="system-ui, sans-serif" font-size="28" fill="#a0a0d0" text-anchor="middle">An AI that doesn't just talk. It acts.</text>
+  <text x="640" y="360" font-family="monospace" font-size="22" fill="#7eb8ff" text-anchor="middle">46 tools · Linux terminal · Browser automation · SSH · Dynamic UI · MCP</text>
+  <text x="640" y="410" font-family="monospace" font-size="22" fill="#7eb8ff" text-anchor="middle">Any model · Any provider · On-device · Android 8.0+</text>
+  <text x="640" y="500" font-family="system-ui, sans-serif" font-size="20" fill="#606090" text-anchor="middle">Built by one developer + AI in 30 days</text>
+  <text x="640" y="540" font-family="system-ui, sans-serif" font-size="18" fill="#505078" text-anchor="middle">github.com/XNet-NGO/AIOPE</text>
+</svg>

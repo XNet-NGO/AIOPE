@@ -2,7 +2,7 @@
 
 **An AI that doesn't just talk. It acts.**
 
-AIOPE is an Android AI assistant with 43 tools, a full Linux terminal, browser automation, location awareness, live data feeds, and the ability to build native interactive UI on the fly. It connects to any OpenAI-compatible API and runs the entire tool loop on-device.
+AIOPE is an Android AI assistant with 46 tools, a full Linux terminal, browser automation, location awareness, live data feeds, remote server management, and the ability to build native interactive UI on the fly. It connects to any OpenAI-compatible API and runs the entire tool loop on-device.
 
 It ships with the [AIOPE Gateway](https://github.com/XNet-NGO/aiope-gateway) -- a self-hosted inference proxy that routes to Google AI Studio, Pollinations, and other providers with a single API key. The gateway handles model routing, rate limiting, and API key management so the client stays clean.
 
@@ -16,7 +16,9 @@ AIOPE operates in three modes:
 - **Plan** -- read-only analysis mode; the AI explores context and produces a structured plan without executing anything
 - **Build** -- autonomous execution mode; the AI chains tools without asking for confirmation until the task is complete
 
-The AI runs a tool loop: reason, call a tool, read the result, decide what to do next. Up to 100 rounds per turn. It handles multi-step tasks -- research a topic, write code, save it to a file, run it in the terminal, fix errors, and report back -- all in one conversation turn.
+The AI runs a tool loop: reason, call a tool, read the result, decide what to do next. Up to 140 rounds per turn. It handles multi-step tasks -- research a topic, write code, save it to a file, run it in the terminal, fix errors, and report back -- all in one conversation turn.
+
+**Auto-run**: a toggle next to the send button that keeps the AI working autonomously. When enabled, after any tool use the AI automatically continues without waiting for user input. Configurable continuation prompt in Agent settings. Max 20 auto-continue rounds per chain.
 
 ### Models Per Task
 
@@ -36,7 +38,7 @@ All configurable. Any model on any provider for any task.
 
 ---
 
-## Tools (43)
+## Tools (46)
 
 ### System
 | Tool | Description |
@@ -90,6 +92,13 @@ All configurable. Any model on any provider for any task.
 | `task` | Spawn a subagent for parallel work |
 | `memory_store` / `memory_recall` / `memory_forget` | Persistent cross-conversation memory |
 
+### Remote Servers (SSH)
+| Tool | Description |
+|---|---|
+| `ssh_start` | Connect to a configured remote server |
+| `ssh_exec` | Execute commands on a connected server |
+| `ssh_exit` | Disconnect from a server |
+
 ---
 
 ## Dynamic UI
@@ -101,6 +110,14 @@ The AI can render native Android UI components directly in chat. Not images. Not
 Forms collect data and submit it back to the AI. Buttons trigger callbacks that continue multi-step workflows. The AI builds the UI, the user interacts with it, and the AI responds to those interactions.
 
 Toggleable per-profile for models that don't handle structured output well.
+
+---
+
+## Remote Servers
+
+Manage and connect to remote Linux servers over SSH directly from the app. Add servers in Settings with host, port, user, and an Ed25519 private key. The AI sees available servers in its system prompt and can connect, run commands, and disconnect through tool calls.
+
+Supports Ed25519 and RSA keys via SSHJ with BouncyCastle. The companion [aiope-remote daemon](daemon/) (Go) can be deployed to servers for health monitoring and managed execution.
 
 ---
 
@@ -197,9 +214,11 @@ Or download the latest APK from [Releases](https://github.com/XNet-NGO/AIOPE/rel
 app/                          Main Android module
 core-designsystem/            Theme, colors, typography
 core-network/                 LLM provider, SSE streaming, task model routing
+core-model/                   Shared interfaces (RemoteToolBridge)
 core-preferences/             DataStore preferences
 core-data/                    Data layer
 core-terminal/                Terminal emulator, proot bootstrap
+daemon/                       Go daemon for remote servers (aiope-remote)
 feature-chat/
   engine/                     StreamingOrchestrator, ToolExecutor, AgentMode
   dynamicui/                  aiope-ui parser, renderer, 30+ node types
@@ -207,6 +226,11 @@ feature-chat/
   location/                   GPS provider, map cards, geocoding
   settings/                   Provider config, model-per-task, MCP, themes
   theme/                      ThemeProvider, ThemeState, ChatBackground
+feature-remote/
+  ssh/                        SshSessionManager, DeployUseCase
+  tools/                      RemoteToolProvider (ssh_start, ssh_exec, ssh_exit)
+  ui/                         ServerListScreen, ServerListViewModel
+  db/                         RemoteDatabase (Room)
 ```
 
 ---

@@ -15,7 +15,7 @@ object ProotExecutor {
 
   @Volatile private var currentProcess: Process? = null
 
-  fun exec(context: Context, command: String, timeoutMs: Long = 30_000): String {
+  fun exec(context: Context, command: String, timeoutMs: Long = 120_000): String {
     val filesDir = context.filesDir.absolutePath
     val rootfs = File(filesDir, "env/alpine")
     val nativeLibDir = context.applicationInfo.nativeLibraryDir

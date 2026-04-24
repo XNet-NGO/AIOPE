@@ -5,6 +5,7 @@ import com.aiope2.core.model.RemoteToolBridge
 import com.aiope2.core.network.ModelTask
 import com.aiope2.core.network.ProviderProfile
 import com.aiope2.core.network.TaskModelStore
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import com.aiope2.feature.chat.LocationData
 import com.aiope2.feature.chat.db.ChatDao
 import com.aiope2.feature.chat.location.LocationProvider
@@ -33,6 +34,13 @@ class ToolExecutor(
   var shellOutputLimit = 4000
   var fetchLimit = 12000
   var fileReadLimit = 50000
+
+  private val httpClient = okhttp3.OkHttpClient.Builder()
+    .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+    .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+    .writeTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+    .followRedirects(true)
+    .build()
 
   fun buildToolDefs() = listOf(
     td("run_sh", "Execute Android shell command", """{"type":"object","properties":{"command":{"type":"string"}},"required":["command"]}"""),
@@ -97,12 +105,9 @@ class ToolExecutor(
     return try {
       val p = providerStore.getActive()
       val gwBase = p.effectiveApiBase().trimEnd('/').removeSuffix("/chat/completions").removeSuffix("/v1")
-      val conn = java.net.URL("$gwBase/v1/data").openConnection() as java.net.HttpURLConnection
-      if (p.apiKey.isNotBlank()) conn.setRequestProperty("Authorization", "Bearer ${p.apiKey}")
-      conn.connectTimeout = 5_000
-      conn.readTimeout = 5_000
-      val body = conn.inputStream.bufferedReader().readText()
-      conn.disconnect()
+      val req = okhttp3.Request.Builder().url("$gwBase/v1/data")
+        .apply { if (p.apiKey.isNotBlank()) addHeader("Authorization", "Bearer ${p.apiKey}") }.build()
+      val body = httpClient.newCall(req).execute().use { it.body?.string() ?: "" }
       val cats = org.json.JSONObject(body).getJSONArray("categories")
       val list = (0 until cats.length()).map { cats.getString(it) }.filter { it != "search_web" && it != "image_search" }.joinToString(", ")
       cachedDataCategories = list
@@ -488,14 +493,11 @@ class ToolExecutor(
   private fun executeFetchUrl(args: Map<String, Any?>): String = try {
     val fetchUrl = java.net.URL(args["url"].toString())
     val mode = args["mode"]?.toString() ?: "text"
-    val conn = (fetchUrl.openConnection() as java.net.HttpURLConnection).apply {
-      setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android) AIOPE/2.0")
-      connectTimeout = 15_000
-      readTimeout = 15_000
-    }
-    val ct = conn.contentType ?: ""
-    val body = conn.inputStream.bufferedReader(Charsets.UTF_8).readText()
-    conn.disconnect()
+    val req = okhttp3.Request.Builder().url(fetchUrl)
+      .header("User-Agent", "Mozilla/5.0 (Linux; Android) AIOPE/2.0").build()
+    val resp = httpClient.newCall(req).execute()
+    val ct = resp.header("Content-Type") ?: ""
+    val body = resp.use { it.body?.string() ?: "" }
     val result = if (mode == "raw" || !ct.contains("html")) {
       body
     } else {
@@ -542,13 +544,10 @@ class ToolExecutor(
     }
     val p = providerStore.getActive()
     val gwBase = p.effectiveApiBase().trimEnd('/').removeSuffix("/chat/completions").removeSuffix("/v1")
-    val conn = (java.net.URL("$gwBase/v1/data?q=$cat&lat=$lat&lon=$lon&extra=$extra").openConnection() as java.net.HttpURLConnection).apply {
-      if (p.apiKey.isNotBlank()) setRequestProperty("Authorization", "Bearer ${p.apiKey}")
-      connectTimeout = 15_000
-      readTimeout = 30_000
-    }
-    val body = (if (conn.responseCode in 200..299) conn.inputStream else conn.errorStream)?.bufferedReader(Charsets.UTF_8)?.readText() ?: "Error: HTTP ${conn.responseCode}"
-    conn.disconnect()
+    val req = okhttp3.Request.Builder().url("$gwBase/v1/data?q=$cat&lat=$lat&lon=$lon&extra=$extra")
+      .apply { if (p.apiKey.isNotBlank()) addHeader("Authorization", "Bearer ${p.apiKey}") }.build()
+    val resp = httpClient.newCall(req).execute()
+    val body = resp.use { if (it.isSuccessful) it.body?.string() ?: "" else "Error: HTTP ${it.code}" }
     val enriched = resolveDataImages(body)
     if (enriched.length > fetchLimit) enriched.take(fetchLimit) + "\n...(truncated)" else enriched
   } catch (e: Exception) {
@@ -561,29 +560,19 @@ class ToolExecutor(
       val (profile, modelId) = resolveTaskModel(ModelTask.IMAGE_GENERATION)
       val p = profile.copy(selectedModelId = modelId)
       val base = p.effectiveApiBase().trimEnd('/')
-      val conn = (java.net.URL("$base/images/generations").openConnection() as java.net.HttpURLConnection).apply {
-        requestMethod = "POST"
-        doOutput = true
-        connectTimeout = 60_000
-        readTimeout = 300_000
-        setRequestProperty("Content-Type", "application/json")
-        if (p.apiKey.isNotBlank()) setRequestProperty("Authorization", "Bearer ${p.apiKey}")
-        useCaches = false
-      }
-      conn.outputStream.use {
-        it.write(
-          org.json.JSONObject().apply {
-            put("model", modelId)
-            put("prompt", prompt)
-            put("response_format", "b64_json")
-            put("seed", System.currentTimeMillis())
-          }.toString().toByteArray(),
-        )
-      }
-      val code = conn.responseCode
-      val body = (if (code in 200..299) conn.inputStream else conn.errorStream)?.bufferedReader()?.readText() ?: ""
-      conn.disconnect()
-      if (code !in 200..299) throw Exception("HTTP $code: ${body.take(200)}")
+      val jsonBody = org.json.JSONObject().apply {
+        put("model", modelId)
+        put("prompt", prompt)
+        put("response_format", "b64_json")
+        put("seed", System.currentTimeMillis())
+      }.toString()
+      val req = okhttp3.Request.Builder().url("$base/images/generations")
+        .post(okhttp3.RequestBody.create("application/json".toMediaTypeOrNull(), jsonBody))
+        .apply { if (p.apiKey.isNotBlank()) addHeader("Authorization", "Bearer ${p.apiKey}") }.build()
+      val imgClient = httpClient.newBuilder().readTimeout(300, java.util.concurrent.TimeUnit.SECONDS).build()
+      val resp = imgClient.newCall(req).execute()
+      val body = resp.use { it.body?.string() ?: "" }
+      if (!resp.isSuccessful) throw Exception("HTTP ${resp.code}: ${body.take(200)}")
       val json = org.json.JSONObject(body)
       val b64 = json.optJSONObject("result")?.optString("image") ?: json.optJSONArray("data")?.optJSONObject(0)?.optString("b64_json") ?: ""
       val imageUrl = json.optJSONArray("data")?.optJSONObject(0)?.optString("url") ?: ""
@@ -663,13 +652,11 @@ class ToolExecutor(
     try {
       val p = providerStore.getActive()
       val gwBase = p.effectiveApiBase().trimEnd('/').removeSuffix("/chat/completions").removeSuffix("/v1")
-      val conn = (java.net.URL("$gwBase/v1/data?q=places&query=$encoded&lat=$lat&lon=$lng").openConnection() as java.net.HttpURLConnection).apply {
-        if (p.apiKey.isNotBlank()) setRequestProperty("Authorization", "Bearer ${p.apiKey}")
-        connectTimeout = 10_000
-        readTimeout = 15_000
-      }
-      if (conn.responseCode in 200..299) {
-        val raw = conn.inputStream.bufferedReader(Charsets.UTF_8).readText()
+      val req = okhttp3.Request.Builder().url("$gwBase/v1/data?q=places&query=$encoded&lat=$lat&lon=$lng")
+        .apply { if (p.apiKey.isNotBlank()) addHeader("Authorization", "Bearer ${p.apiKey}") }.build()
+      val resp = httpClient.newCall(req).execute()
+      if (resp.isSuccessful) {
+        val raw = resp.use { it.body?.string() ?: "" }
         val json = org.json.JSONObject(raw)
         val body = json.optJSONObject("data")?.toString() ?: raw
         if (body.contains("features")) return parseGeoapifyResults(body, query)
@@ -677,19 +664,13 @@ class ToolExecutor(
     } catch (e: Exception) { android.util.Log.w("ToolExec", "op failed: ${e.message}") }
     val apiKey = providerStore.getGeoapifyKey()
     if (apiKey.isBlank()) return "Place search unavailable. Configure location search on the gateway or set a Geoapify key in Settings."
-    val conn = (java.net.URL("https://api.geoapify.com/v2/places?categories=commercial,catering,service,entertainment,leisure,sport,tourism,accommodation,education,healthcare&conditions=named&filter=circle:$lng,$lat,5000&bias=proximity:$lng,$lat&limit=5&name=$encoded&apiKey=$apiKey").openConnection() as java.net.HttpURLConnection).apply {
-      connectTimeout = 15000
-      readTimeout = 15000
+    val conn = httpClient.newCall(okhttp3.Request.Builder().url("https://api.geoapify.com/v2/places?categories=commercial,catering,service,entertainment,leisure,sport,tourism,accommodation,education,healthcare&conditions=named&filter=circle:$lng,$lat,5000&bias=proximity:$lng,$lat&limit=5&name=$encoded&apiKey=$apiKey").build()).execute()
+    if (!conn.isSuccessful) {
+      val conn2 = httpClient.newCall(okhttp3.Request.Builder().url("https://api.geoapify.com/v1/geocode/search?text=${java.net.URLEncoder.encode(query, "UTF-8")}&bias=proximity:$lng,$lat&limit=5&apiKey=$apiKey").build()).execute()
+      if (!conn2.isSuccessful) return "Search error: HTTP ${conn2.code}"
+      return parseGeoapifyResults(conn2.use { it.body?.string() ?: "" }, query)
     }
-    if (conn.responseCode !in 200..299) {
-      val conn2 = (java.net.URL("https://api.geoapify.com/v1/geocode/search?text=${java.net.URLEncoder.encode(query, "UTF-8")}&bias=proximity:$lng,$lat&limit=5&apiKey=$apiKey").openConnection() as java.net.HttpURLConnection).apply {
-        connectTimeout = 15000
-        readTimeout = 15000
-      }
-      if (conn2.responseCode !in 200..299) return "Search error: HTTP ${conn2.responseCode}"
-      return parseGeoapifyResults(conn2.inputStream.bufferedReader(Charsets.UTF_8).readText(), query)
-    }
-    return parseGeoapifyResults(conn.inputStream.bufferedReader(Charsets.UTF_8).readText(), query)
+    return parseGeoapifyResults(conn.use { it.body?.string() ?: "" }, query)
   }
 
   private fun parseGeoapifyResults(body: String, query: String): String {

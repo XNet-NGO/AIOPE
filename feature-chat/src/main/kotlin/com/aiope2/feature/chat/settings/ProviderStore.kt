@@ -182,12 +182,9 @@ class ProviderStore @Inject constructor(
       try {
         val base = profile.effectiveApiBase().trimEnd('/')
         val url = if (base.endsWith("/v1")) "$base/models" else "$base/v1/models"
-        val conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
-        conn.setRequestProperty("Authorization", "Bearer ${profile.apiKey}")
-        conn.connectTimeout = 10_000
-        conn.readTimeout = 10_000
-        val body = conn.inputStream.bufferedReader().readText()
-        conn.disconnect()
+        val client = okhttp3.OkHttpClient.Builder().connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS).readTimeout(10, java.util.concurrent.TimeUnit.SECONDS).build()
+        val req = okhttp3.Request.Builder().url(url).addHeader("Authorization", "Bearer ${profile.apiKey}").build()
+        val body = client.newCall(req).execute().use { it.body?.string() ?: "" }
         val data = JSONObject(body).optJSONArray("data") ?: return@Thread
         val models = (0 until data.length()).map {
           val o = data.getJSONObject(it)

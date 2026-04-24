@@ -360,14 +360,6 @@ class ChatViewModel @Inject constructor(
 
       try {
         val useTools = mc.toolsOverride != false // null=auto(send), true=send, false=dont send
-        val sb = StringBuilder()
-        val reasoningBlocks = mutableListOf<String>()
-        val currentReasoning = StringBuilder()
-        var isReasoning = false
-        val toolCallsList = mutableListOf<String>()
-        val toolResultsList = mutableListOf<String>()
-        val toolErrorsList = mutableListOf<String>()
-
         val toolDefs = if (useTools) toolExecutor.buildToolDefs() else emptyList()
 
         // Build messages (trim to contextTokens limit using jtokkit)
@@ -436,84 +428,10 @@ class ChatViewModel @Inject constructor(
           }
         }
 
-        var lastUiLength = 0
-        val charsPerLine = 55
-        orchestrator.stream(sendMessages, imageBase64s).collect { chunk ->
-          // Reasoning — accumulate into current block
-          chunk.reasoning?.let { r ->
-            if (!isReasoning) {
-              isReasoning = true
-              currentReasoning.clear()
-            }
-            currentReasoning.append(r)
-          }
-
-          // Text content — if we were reasoning, close that block
-          if (chunk.content.isNotEmpty()) {
-            if (isReasoning && currentReasoning.isNotEmpty()) {
-              reasoningBlocks.add(currentReasoning.toString())
-              currentReasoning.clear()
-              isReasoning = false
-            }
-            sb.append(chunk.content)
-          }
-
-          // Tool calls — close any open reasoning block first
-          chunk.toolCalls?.let { calls ->
-            if (isReasoning && currentReasoning.isNotEmpty()) {
-              reasoningBlocks.add(currentReasoning.toString())
-              currentReasoning.clear()
-              isReasoning = false
-            }
-            for (c in calls) toolCallsList.add("${c.name}(${c.arguments.values.firstOrNull()?.toString()?.take(80) ?: ""})")
-          }
-
-          chunk.toolResults?.let { results ->
-            for (r in results) {
-              toolResultsList.add(r.result.take(2000))
-              if (r.result.startsWith("Error:") || r.result.startsWith("FAILED")) toolErrorsList.add("${r.name}: ${r.result.take(200)}")
-            }
-            sb.clear()
-          }
-
-          chunk.error?.let { sb.append("\nError: $it") }
-
-          // Done — close any remaining reasoning block
-          if (chunk.isDone && isReasoning && currentReasoning.isNotEmpty()) {
-            reasoningBlocks.add(currentReasoning.toString())
-            isReasoning = false
-          }
-
-          // Build current reasoning list (include in-progress block)
-          val allReasoning = if (isReasoning && currentReasoning.isNotEmpty()) {
-            reasoningBlocks + currentReasoning.toString()
-          } else {
-            reasoningBlocks.toList()
-          }
-
-          val currentLen = sb.length
-          val hasNewLine = chunk.content.contains('\n')
-          val lineWorth = currentLen - lastUiLength >= charsPerLine
-          if (chunk.isDone || chunk.error != null || hasNewLine || lineWorth || chunk.toolCalls != null || chunk.toolResults != null || chunk.reasoning != null) {
-            lastUiLength = currentLen
-            withContext(Dispatchers.Main) {
-              _messages.value = _messages.value.toMutableList().also {
-                it[it.lastIndex] = it.last().copy(
-                  content = sb.toString(),
-                  reasoning = allReasoning,
-                  isReasoningDone = !isReasoning,
-                  toolCalls = toolCallsList.toList(),
-                  toolResults = toolResultsList.toList(),
-                  toolErrors = toolErrorsList.toList(),
-                  locationData = if (toolExecutor.locationUsedThisTurn) toolExecutor.lastLocationData else null,
-                )
-              }
-            }
-          }
-        }
+        val result = collectStream(orchestrator, sendMessages, imageBase64s)
 
         // Extract generated image URIs from content
-        val generatedImages = Regex("""file:///[^\s)]+\.(png|jpg|jpeg|webp)""").findAll(sb.toString()).map { it.value }.toList()
+        val generatedImages = Regex("""file:///[^\s)]+\.(png|jpg|jpeg|webp)""").findAll(result).map { it.value }.toList()
         if (generatedImages.isNotEmpty()) {
           _messages.value = _messages.value.toMutableList().also {
             it[it.lastIndex] = it.last().copy(imageUris = generatedImages)
@@ -542,7 +460,7 @@ class ChatViewModel @Inject constructor(
         }
 
         // Auto-continue when tools were used
-        val hadTools = toolCallsList.isNotEmpty()
+        val hadTools = finalMsg.toolCalls.isNotEmpty()
         if (_autoRun.value && hadTools && autoRunRounds < 20) {
           autoRunRounds++
           val prompt = chatDao.getSetting("agent_auto_run_prompt") ?: "continue"
@@ -693,6 +611,70 @@ class ChatViewModel @Inject constructor(
   }
 
   /** Send to LLM without adding a new user message (used by retry) */
+  /** Shared streaming collection logic used by send() and resend(). Returns final content string. */
+  private suspend fun collectStream(
+    orchestrator: StreamingOrchestrator,
+    messages: List<Pair<String, String>>,
+    imageBase64s: List<String> = emptyList(),
+  ): String {
+    val sb = StringBuilder()
+    val reasoningBlocks = mutableListOf<String>()
+    val currentReasoning = StringBuilder()
+    var isReasoning = false
+    val toolCallsList = mutableListOf<String>()
+    val toolResultsList = mutableListOf<String>()
+    val toolErrorsList = mutableListOf<String>()
+    var lastUiLength = 0
+    val charsPerLine = 55
+
+    orchestrator.stream(messages, imageBase64s).collect { chunk ->
+      chunk.reasoning?.let { r ->
+        if (!isReasoning) { isReasoning = true; currentReasoning.clear() }
+        currentReasoning.append(r)
+      }
+      if (chunk.content.isNotEmpty()) {
+        if (isReasoning && currentReasoning.isNotEmpty()) {
+          reasoningBlocks.add(currentReasoning.toString()); currentReasoning.clear(); isReasoning = false
+        }
+        sb.append(chunk.content)
+      }
+      chunk.toolCalls?.let { calls ->
+        if (isReasoning && currentReasoning.isNotEmpty()) {
+          reasoningBlocks.add(currentReasoning.toString()); currentReasoning.clear(); isReasoning = false
+        }
+        for (c in calls) toolCallsList.add("${c.name}(${c.arguments.values.firstOrNull()?.toString()?.take(80) ?: ""})")
+      }
+      chunk.toolResults?.let { results ->
+        for (r in results) {
+          toolResultsList.add(r.result.take(2000))
+          if (r.result.startsWith("Error:") || r.result.startsWith("FAILED")) toolErrorsList.add("${r.name}: ${r.result.take(200)}")
+        }
+        sb.clear()
+      }
+      chunk.error?.let { sb.append("\nError: $it") }
+      if (chunk.isDone && isReasoning && currentReasoning.isNotEmpty()) {
+        reasoningBlocks.add(currentReasoning.toString()); isReasoning = false
+      }
+      val allReasoning = if (isReasoning && currentReasoning.isNotEmpty()) reasoningBlocks + currentReasoning.toString() else reasoningBlocks.toList()
+      val currentLen = sb.length
+      val hasNewLine = chunk.content.contains('\n')
+      val lineWorth = currentLen - lastUiLength >= charsPerLine
+      if (chunk.isDone || chunk.error != null || hasNewLine || lineWorth || chunk.toolCalls != null || chunk.toolResults != null || chunk.reasoning != null) {
+        lastUiLength = currentLen
+        withContext(Dispatchers.Main) {
+          _messages.value = _messages.value.toMutableList().also {
+            it[it.lastIndex] = it.last().copy(
+              content = sb.toString(), reasoning = allReasoning, isReasoningDone = !isReasoning,
+              toolCalls = toolCallsList.toList(), toolResults = toolResultsList.toList(), toolErrors = toolErrorsList.toList(),
+              locationData = if (toolExecutor.locationUsedThisTurn) toolExecutor.lastLocationData else null,
+            )
+          }
+        }
+      }
+    }
+    return sb.toString()
+  }
+
   private fun resend(text: String) {
     if (!isOnline()) {
       _messages.value = _messages.value + ChatMessage(role = Role.ASSISTANT, content = "⚠️ No internet connection. Please check your network and try again.")
@@ -706,20 +688,11 @@ class ChatViewModel @Inject constructor(
       try {
         val p = providerStore.getActive()
         val mc = p.activeModelConfig()
-        val useTools = mc.toolsOverride != false // null=auto(send), true=send, false=dont send
-        val sb = StringBuilder()
-        val reasoningBlocks = mutableListOf<String>()
-        val currentReasoning = StringBuilder()
-        var isReasoning = false
-        val toolCallsList = mutableListOf<String>()
-        val toolResultsList = mutableListOf<String>()
-        val toolErrorsList = mutableListOf<String>()
-
+        val useTools = mc.toolsOverride != false
         val chatMessages = buildSystemMessages(mc)
         _messages.value.dropLast(1).forEach { msg ->
           when (msg.role) {
             Role.USER -> chatMessages.add("user" to msg.content)
-
             Role.ASSISTANT -> {
               var content = msg.content
               if (msg.toolCalls.isNotEmpty()) {
@@ -732,7 +705,6 @@ class ChatViewModel @Inject constructor(
               }
               chatMessages.add("assistant" to content)
             }
-
             else -> {}
           }
         }
@@ -745,51 +717,9 @@ class ChatViewModel @Inject constructor(
           onToolCall = { name, args -> toolExecutor.execute(name, args) },
         )
 
-        orchestrator.stream(chatMessages).collect { chunk ->
-          chunk.reasoning?.let {
-            if (!isReasoning) {
-              isReasoning = true
-              currentReasoning.clear()
-            }
-            currentReasoning.append(it)
-          }
-          if (chunk.content.isNotEmpty()) {
-            if (isReasoning && currentReasoning.isNotEmpty()) {
-              reasoningBlocks.add(currentReasoning.toString())
-              currentReasoning.clear()
-              isReasoning = false
-            }
-            sb.append(chunk.content)
-          }
-          chunk.toolCalls?.let { calls ->
-            if (isReasoning) {
-              reasoningBlocks.add(currentReasoning.toString())
-              currentReasoning.clear()
-              isReasoning = false
-            }
-            for (c in calls) toolCallsList.add("${c.name}(${c.arguments.values.firstOrNull()?.toString()?.take(80) ?: ""})")
-          }
-          chunk.toolResults?.let { results ->
-            for (r in results) {
-              toolResultsList.add(r.result.take(2000))
-              if (r.result.startsWith("Error:") || r.result.startsWith("FAILED")) toolErrorsList.add("${r.name}: ${r.result.take(200)}")
-            }
-            sb.clear()
-          }
-          chunk.error?.let { sb.append("\nError: $it") }
-          if (chunk.isDone && isReasoning && currentReasoning.isNotEmpty()) {
-            reasoningBlocks.add(currentReasoning.toString())
-            isReasoning = false
-          }
-          val allReasoning = if (isReasoning && currentReasoning.isNotEmpty()) reasoningBlocks + currentReasoning.toString() else reasoningBlocks.toList()
-          withContext(Dispatchers.Main) {
-            _messages.value = _messages.value.toMutableList().also {
-              it[it.lastIndex] = it.last().copy(content = sb.toString(), reasoning = allReasoning, isReasoningDone = !isReasoning, toolCalls = toolCallsList.toList(), toolResults = toolResultsList.toList(), toolErrors = toolErrorsList.toList(), locationData = if (toolExecutor.locationUsedThisTurn) toolExecutor.lastLocationData else null)
-            }
-          }
-        }
+        val result = collectStream(orchestrator, chatMessages)
 
-        val resendImages = Regex("""file:///[^\s)]+\.(png|jpg|jpeg|webp)""").findAll(sb.toString()).map { it.value }.toList()
+        val resendImages = Regex("""file:///[^\s)]+\.(png|jpg|jpeg|webp)""").findAll(result).map { it.value }.toList()
         if (resendImages.isNotEmpty()) {
           _messages.value = _messages.value.toMutableList().also { it[it.lastIndex] = it.last().copy(imageUris = resendImages) }
         }

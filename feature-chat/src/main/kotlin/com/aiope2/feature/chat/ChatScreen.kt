@@ -510,22 +510,12 @@ private fun ChatInput(onSend: (String, List<String>) -> Unit, onStop: () -> Unit
       Row(Modifier.fillMaxWidth().padding(bottom = 4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         pendingImages.forEach { uri ->
           Box(Modifier.size(48.dp)) {
-            val bmp = remember(uri) {
-              try {
-                android.provider.MediaStore.Images.Media.getBitmap(context.contentResolver, android.net.Uri.parse(uri))
-              } catch (_: Exception) {
-                null
-              }
-            }
-            if (bmp != null) {
-              AndroidView(factory = { ctx ->
-                android.widget.ImageView(ctx).apply {
-                  scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
-                  setImageBitmap(bmp)
-                  clipToOutline = true
-                }
-              }, modifier = Modifier.size(48.dp))
-            }
+            coil.compose.AsyncImage(
+              model = android.net.Uri.parse(uri),
+              contentDescription = "attached image",
+              contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+              modifier = Modifier.size(48.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(4.dp)),
+            )
           }
         }
         Text(
